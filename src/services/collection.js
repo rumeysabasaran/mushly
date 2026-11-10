@@ -1,26 +1,28 @@
 /*
-  KOLEKSİYON — Fotoğrafları ve buluşları veritabanına yazan işlemler.
+  COLLECTION — the operations that write photos and finds to the database.
 
-  Akış:
-  - Tür kitapta YOKSA → yeni tür sayfası açılır, nadirliğe göre puan kazanılır.
-  - Tür kitapta VARSA → görülme sayısı artar, küçük bonus puan kazanılır.
-  - "Emin değilim" → taslak buluş olarak kaydedilir, puan yok (sonra türü seçilebilir).
+  Flow:
+  - Species NOT in the book yet → a new species page opens; points are earned by rarity.
+  - Species ALREADY in the book → its sighting count goes up; a small bonus is earned.
+  - "I'm not sure" → saved as a draft find, no points (the species can be picked later).
 
-  Puan kuralı (bir tür için): en eski buluş yeni tür puanını, diğer her buluş
-  tekrar bonusunu alır. Buluş silinince ya da tarihi değişince bu yeniden hesaplanır.
+  Point rule (per species): the earliest find earns the new-species points, every other
+  find earns the repeat bonus. This is recalculated when a find is deleted or re-dated.
 */
 import { tables, transaction, withMeta, newId } from '../data/db.js';
 import { RARITY, REPEAT_BONUS } from '../data/gamification.js';
+import { language } from '../i18n';
+import { commonNameOf } from './safety.js';
 import { storePhotoFiles, deletePhotoFiles } from './photos';
 
 const { species: Species, sightings: Sightings, photos: Photos, points: Points, trips: Trips } = tables;
 
-/** Latince addan benzersiz anahtar: "Trametes  Versicolor" → "trametes versicolor" */
+/** Unique key from a Latin name: "Trametes  Versicolor" → "trametes versicolor" */
 export function speciesKeyOf(latinName) {
   return String(latinName).trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** Kameradan/galeriden gelen fotoğrafı küçültüp kaydeder, kaydın kimliğini döndürür. */
+/** Shrinks and stores a photo from the camera or gallery; returns the record id. */
 export async function savePhoto(asset) {
   const id = newId();
   const files = await storePhotoFiles(asset, id);
@@ -28,7 +30,7 @@ export async function savePhoto(asset) {
   return id;
 }
 
-/** Kaydedilmeden vazgeçilen fotoğrafı siler. */
+/** Deletes a photo that was abandoned before saving. */
 export async function deletePhoto(photoId) {
   if (!photoId) return;
   const photo = await Photos.get(photoId);
@@ -36,7 +38,7 @@ export async function deletePhoto(photoId) {
   deletePhotoFiles(photo);
 }
 
-/** Seçilen adayı kitaptaki bir tür sayfasına bağlar (yoksa sayfayı açar). */
+/** Links the chosen candidate to a species page in the book (opening one if needed). */
 async function attachToSpecies(candidate, photoId, foundAt) {
   const now = Date.now();
   const speciesKey = speciesKeyOf(candidate.latinName);
@@ -56,7 +58,8 @@ async function attachToSpecies(candidate, photoId, foundAt) {
   species = withMeta({
     speciesKey,
     latinName: candidate.latinName,
-    turkishName: candidate.turkishName,
+    commonName: commonNameOf(candidate),
+    language, // the language the description was written in
     rarity: candidate.rarity,
     description: {
       capShape: candidate.capShape,
@@ -75,7 +78,7 @@ async function attachToSpecies(candidate, photoId, foundAt) {
   return { species, isNew: true, pointsEarned: (RARITY[candidate.rarity] ?? RARITY.common).points };
 }
 
-/** Bir türün puanlarını baştan hesaplar: en eski buluş yeni tür puanı, diğerleri tekrar bonusu alır. */
+/** Recalculates a species' points: the earliest find earns new-species points, the rest the repeat bonus. */
 async function recomputeSpeciesPoints(speciesId) {
   await Points.deleteWhere('speciesId', speciesId);
   const species = await Species.get(speciesId);
@@ -93,11 +96,11 @@ async function recomputeSpeciesPoints(speciesId) {
   await Points.bulkPut(rows);
 }
 
-/** Türün tarihlerini ve görülme sayısını buluşlardan yeniden hesaplar. */
+/** Recalculates a species' dates and sighting count from its finds. */
 async function refreshSpecies(speciesId) {
   const sightings = await Sightings.where('speciesId', speciesId);
   if (sightings.length === 0) {
-    await Species.delete(speciesId); // son buluş da silindiyse sayfa kalkar
+    await Species.delete(speciesId); // the last find was deleted, so the page goes too
     return;
   }
   const times = sightings.map((s) => s.foundAt);
@@ -113,13 +116,13 @@ async function refreshSpecies(speciesId) {
 }
 
 /**
- * Bir buluşu kaydeder.
+ * Saves a find.
  * @param {object} p
  * @param {string} p.photoId
- * @param {object|null} p.candidate   Seçilen tür; null ise taslak
- * @param {object[]} p.candidates     Tanımanın önerdiği tüm adaylar (taslak için saklanır)
- * @param {object} p.notes            Saha notları { weather, companions, note, location }
- * @param {number} p.foundAt          Bulunma zamanı (ms)
+ * @param {object|null} p.candidate   The chosen species; null for a draft
+ * @param {object[]} p.candidates     Every candidate recognition suggested (kept for drafts)
+ * @param {object} p.notes            Field notes { weather, companions, note, location }
+ * @param {number} p.foundAt          When it was found (ms)
  * @returns {{type:'new'|'repeat'|'draft', species, sighting, pointsEarned}}
  */
 export async function recordSighting({ photoId, candidate = null, candidates = [], notes = {}, foundAt = Date.now() }) {
@@ -151,11 +154,11 @@ export async function recordSighting({ photoId, candidate = null, candidates = [
   });
 }
 
-/** Taslak bir buluşun türünü sonradan seçer. Kayıt gibi puan ve kutlama döndürür. */
+/** Picks the species of a draft later on. Returns points and a celebration like a normal save. */
 export async function resolveDraft(sightingId, candidate) {
   return transaction(async () => {
     const sighting = await Sightings.get(sightingId);
-    if (!sighting || sighting.speciesId) throw new Error('Taslak bulunamadı.');
+    if (!sighting || sighting.speciesId) throw new Error('Draft not found.');
 
     const attached = await attachToSpecies(candidate, sighting.photoId, sighting.foundAt);
     await Sightings.update(sightingId, {
@@ -170,7 +173,7 @@ export async function resolveDraft(sightingId, candidate) {
   });
 }
 
-/** Saha notlarını ve tarihi günceller. */
+/** Updates a find's field notes and date. */
 export async function updateSighting(sightingId, { foundAt, notes }) {
   return transaction(async () => {
     const sighting = await Sightings.get(sightingId);
@@ -178,12 +181,12 @@ export async function updateSighting(sightingId, { foundAt, notes }) {
     await Sightings.update(sightingId, { foundAt, notes, updatedAt: Date.now() });
     if (sighting.speciesId && foundAt !== sighting.foundAt) {
       await refreshSpecies(sighting.speciesId);
-      await recomputeSpeciesPoints(sighting.speciesId); // "ilk buluş" değişmiş olabilir
+      await recomputeSpeciesPoints(sighting.speciesId); // the "first find" may have changed
     }
   });
 }
 
-/** Bir buluşu fotoğrafı ve puanıyla birlikte siler. Türün son buluşuysa sayfa da kalkar. */
+/** Deletes a find together with its photo and points. Removes the page if it was the last find. */
 export async function deleteSighting(sightingId) {
   const photo = await transaction(async () => {
     const sighting = await Sightings.get(sightingId);
@@ -198,11 +201,11 @@ export async function deleteSighting(sightingId) {
     }
     return photoRecord;
   });
-  // Dosyalar, veritabanı işlemi başarıyla bittikten sonra silinir
+  // Files are deleted only after the database transaction succeeded
   if (photo) deletePhotoFiles(photo);
 }
 
-/** Tür sayfasındaki polaroidi başka bir fotoğrafla değiştirir. */
+/** Replaces the polaroid on a species page with another photo. */
 export async function setCoverPhoto(speciesId, photoId) {
   await Species.update(speciesId, { coverPhotoId: photoId, updatedAt: Date.now() });
 }

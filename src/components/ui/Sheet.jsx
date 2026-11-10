@@ -1,10 +1,10 @@
 /*
-  ALT PENCERE — Ekranın altından kayarak açılan kâğıt pencere.
-  Kapatma: arka plana dokun, ✕ düğmesi, telefonun geri tuşu ya da başlıktan aşağı çek.
-  variant="photo": koyu arka planda büyük fotoğraf görünümü.
+  SHEET — a paper panel that slides up from the bottom of the screen.
+  Closes by tapping the backdrop, the ✕ button, the phone's back button, or dragging the header down.
+  variant="photo": a large photo view on a dark backdrop.
 
-  Kullanım: {open && <Sheet title="..." onClose={...}>...</Sheet>}
-  Kapanırken önce aşağı kayar, sonra onClose çağrılır.
+  Usage: {open && <Sheet title="..." onClose={...}>...</Sheet>}
+  When closing it slides down first, then calls onClose.
 */
 import { useCallback, useEffect } from 'react';
 import { Dimensions, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { PaperTexture } from './Paper';
 import { type } from './Typography';
+import { t } from '../../i18n';
 import { colors, layout, radius, space } from '../../theme';
 
 const SCREEN_H = Dimensions.get('window').height;
@@ -23,7 +24,7 @@ const EASE = Easing.bezier(0.25, 0.8, 0.3, 1);
 export default function Sheet({ title, onClose, children, variant = 'paper' }) {
   const insets = useSafeAreaInsets();
   const isPhoto = variant === 'photo';
-  const offset = useSharedValue(SCREEN_H); // 0 = açık, SCREEN_H = aşağıda gizli
+  const offset = useSharedValue(SCREEN_H); // 0 = open, SCREEN_H = hidden below
   const drag = useSharedValue(0);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function Sheet({ title, onClose, children, variant = 'paper' }) {
     });
   }, [offset, onClose]);
 
-  // Başlıktan aşağı çekince kapanır
+  // Dragging the header down closes it
   const pan = usePanGesture({
     activeOffsetY: 8,
     onUpdate: (e) => {
@@ -67,7 +68,7 @@ export default function Sheet({ title, onClose, children, variant = 'paper' }) {
     <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
       <GestureHandlerRootView style={styles.root}>
         <Animated.View style={[StyleSheet.absoluteFill, isPhoto ? styles.backdropPhoto : styles.backdrop, backdropStyle]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Kapat" />
+          <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel={t('common.close')} />
         </Animated.View>
 
         <KeyboardAvoidingView
@@ -93,7 +94,7 @@ export default function Sheet({ title, onClose, children, variant = 'paper' }) {
                     {title}
                   </Text>
                 )}
-                <Pressable onPress={close} style={styles.close} accessibilityRole="button" accessibilityLabel="Kapat" hitSlop={8}>
+                <Pressable onPress={close} style={styles.close} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={8}>
                   <Icon name="close" size={22} color={isPhoto ? colors.cream : colors.inkSoft} />
                 </Pressable>
               </View>

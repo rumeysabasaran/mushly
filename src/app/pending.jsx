@@ -1,6 +1,6 @@
 /*
-  BEKLEYENLER EKRANI — İnternet yokken çekilen fotoğraflar.
-  Hazır olanlara dokununca tanıma sonucu açılır ve deftere kaydedilebilir.
+  PENDING — photos taken without internet.
+  Tapping a ready item opens its recognition result so it can be saved to the journal.
 */
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -18,34 +18,35 @@ import { confirmAsync } from '../components/ui/confirm';
 import { usePendingList, usePhotoUri } from '../data/hooks';
 import { formatDate } from '../data/fieldNotes';
 import { processPending, retryPending, removePending } from '../services/pendingQueue';
+import { errorMessage, t } from '../i18n';
 import { colors, fonts } from '../theme';
 
-const STATUS_TEXT = {
-  waiting: 'İnternet bekleniyor',
-  processing: 'Tanınıyor…',
-  ready: 'Hazır: türü seç',
-  error: 'Tanınamadı',
-};
+/** The error text of a failed item (older items stored a ready-made Turkish message) */
+function itemError(item) {
+  if (item.errorCode) return errorMessage(item.errorCode);
+  return item.errorMessage || '';
+}
 
 function PendingItem({ item, onOpen }) {
   const thumb = usePhotoUri(item.photoId, 'thumb');
+  const error = item.status === 'error' ? itemError(item) : '';
 
   async function handleDelete() {
-    if (await confirmAsync('Fotoğraf silinsin mi?', 'Bu fotoğraf tanınmadan silinecek.')) await removePending(item.id);
+    if (await confirmAsync(t('pending.deleteTitle'), t('pending.deleteText'))) await removePending(item.id);
   }
 
   return (
     <Paper padded={false} style={styles.item}>
       <Image source={thumb ? { uri: thumb } : null} style={styles.thumb} contentFit="cover" />
       <View style={styles.itemBody}>
-        <Text style={[styles.status, item.status === 'error' && { color: colors.earth }]}>{STATUS_TEXT[item.status]}</Text>
-        {item.status === 'error' && !!item.errorMessage && <Text style={type.small}>{item.errorMessage}</Text>}
+        <Text style={[styles.status, item.status === 'error' && { color: colors.earth }]}>{t(`pending.status.${item.status}`)}</Text>
+        {!!error && <Text style={type.small}>{error}</Text>}
         <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
       </View>
       <View style={styles.itemActions}>
-        {item.status === 'ready' && <Button small title="Aç" onPress={() => onOpen(item)} />}
-        {item.status === 'error' && <Button small variant="ghost" title="Tekrar" onPress={() => retryPending(item.id)} />}
-        <Button small variant="text" title="Sil" onPress={handleDelete} />
+        {item.status === 'ready' && <Button small title={t('pending.open')} onPress={() => onOpen(item)} />}
+        {item.status === 'error' && <Button small variant="ghost" title={t('pending.retry')} onPress={() => retryPending(item.id)} />}
+        <Button small variant="text" title={t('common.delete')} onPress={handleDelete} />
       </View>
     </Paper>
   );
@@ -53,12 +54,12 @@ function PendingItem({ item, onOpen }) {
 
 export default function PendingScreen() {
   const items = usePendingList();
-  const [open, setOpen] = useState(null); // açık olan bekleyen kayıt
+  const [open, setOpen] = useState(null); // the pending item currently open
 
   const back = (
     <Pressable onPress={() => (open ? setOpen(null) : router.back())} style={styles.back} accessibilityRole="button" hitSlop={8}>
       <Icon name="chevronLeft" size={20} color={colors.forest} />
-      <Text style={type.link}>{open ? 'Bekleyenler' : 'Geri'}</Text>
+      <Text style={type.link}>{open ? t('pending.title') : t('common.back')}</Text>
     </Pressable>
   );
 
@@ -68,15 +69,15 @@ export default function PendingScreen() {
         <Backdrop />
         <Screen withNav={false} keyboard>
           {back}
-          <PageHeader eyebrow="Bekleyenler" title="Tanıma sonucu" />
+          <PageHeader eyebrow={t('pending.title')} title={t('pending.resultTitle')} />
           <IdentifyFlow
             photoId={open.photoId}
             result={open.result}
-            // Kaydedilince bekleyenlerden çıkar ama fotoğrafı koru (artık defterde)
+            // Once saved, remove it from pending but keep the photo (it's in the journal now)
             onSaved={() => removePending(open.id, { keepPhoto: true })}
             onCancel={() => setOpen(null)}
             onAgain={() => setOpen(null)}
-            againLabel="Bekleyenlere dön"
+            againLabel={t('pending.backToList')}
           />
         </Screen>
       </View>
@@ -90,12 +91,12 @@ export default function PendingScreen() {
       <Backdrop />
       <Screen withNav={false}>
         {back}
-        <PageHeader eyebrow="Çevrimdışı çekilenler" title="Bekleyenler" subtitle="Bağlantı gelince bu fotoğraflar kendiliğinden tanınır." />
+        <PageHeader eyebrow={t('pending.eyebrow')} title={t('pending.title')} subtitle={t('pending.subtitle')} />
 
         {items.length === 0 ? (
           <Paper style={styles.empty}>
             <Icon name="clock" size={40} color={colors.moss} />
-            <Text style={[type.muted, type.center]}>Bekleyen fotoğraf yok. Hepsi deftere işlenmiş.</Text>
+            <Text style={[type.muted, type.center]}>{t('pending.empty')}</Text>
           </Paper>
         ) : (
           <>
@@ -104,7 +105,7 @@ export default function PendingScreen() {
                 <PendingItem key={item.id} item={item} onOpen={setOpen} />
               ))}
             </View>
-            {waitingCount > 0 && <Button block variant="ghost" title="Şimdi dene" onPress={() => processPending()} />}
+            {waitingCount > 0 && <Button block variant="ghost" title={t('pending.tryNow')} onPress={() => processPending()} />}
           </>
         )}
       </Screen>

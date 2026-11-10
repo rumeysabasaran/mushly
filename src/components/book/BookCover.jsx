@@ -1,20 +1,21 @@
 /*
-  KİTAP KAPAĞI — Koyu yeşil, altın çerçeveli defter kapağı.
-  Sağdaki sayfa kenarları tür sayısı arttıkça kalınlaşır: kitap büyüdükçe görünür.
+  BOOK COVER — a dark green notebook cover with a gold frame.
+  The page edges on the right get thicker as species are added: you can see the book grow.
 
-  small: ana sayfadaki küçük kapak (sadece amblem ve başlık)
-  fill:  kitabın içindeki kapak (bulunduğu alanı tamamen kaplar)
+  small: the little cover on the home screen (emblem and title only)
+  fill:  the cover inside the book (fills its whole area)
 */
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
 import { CornerFlourish, MushroomSketch } from '../ui/Ornaments';
 import { PaperTexture } from '../ui/Paper';
+import { t, upper } from '../../i18n';
 import { colors, fonts } from '../../theme';
 
 const GOLD = 'rgba(210, 160, 58, 0.75)';
 
-/** Kapağın arkasından taşan sayfa kenarları: krem ve ince çizgiler */
+/** Page edges peeking out behind the cover: cream with thin lines */
 export function PageEdges({ style }) {
   return (
     <View style={[styles.edges, style]} pointerEvents="none">
@@ -32,7 +33,7 @@ export function PageEdges({ style }) {
 }
 
 export default function BookCover({ speciesCount = 0, small = false, fill = false, width, style }) {
-  // 0 türde ince, her türle biraz kalınlaşır (en fazla 22px)
+  // thin with 0 species, a little thicker with each one (at most 22px)
   const thickness = fill ? 0 : Math.min(22, 4 + speciesCount * 0.6);
   const cornerSize = small ? 28 : 40;
 
@@ -49,7 +50,7 @@ export default function BookCover({ speciesCount = 0, small = false, fill = fals
 
       <View style={[styles.front, fill && styles.frontFill]}>
         <PaperTexture opacity={0.6} />
-        {/* sol tarafta cilt (sırt) gölgesi */}
+        {/* spine shadow on the left */}
         <LinearGradient
           colors={['rgba(0,0,0,0.28)', 'rgba(0,0,0,0.05)', 'rgba(0,0,0,0)']}
           locations={[0, 0.09, 0.11]}
@@ -58,7 +59,7 @@ export default function BookCover({ speciesCount = 0, small = false, fill = fals
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-        {/* üstten vuran hafif ışık */}
+        {/* soft light from above */}
         <LinearGradient
           colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']}
           start={{ x: 0.7, y: 0 }}
@@ -79,12 +80,12 @@ export default function BookCover({ speciesCount = 0, small = false, fill = fals
           )}
 
           <MushroomSketch size={small ? 40 : 76} color={colors.mustard} />
-          <Text style={[styles.title, small && styles.titleSmall]}>Mantar Defteri</Text>
+          <Text style={[styles.title, small && styles.titleSmall]}>{t('app.name')}</Text>
           {!small && (
             <>
-              <Text style={styles.subtitle}>Saha Notları & Keşifler</Text>
+              <Text style={styles.subtitle}>{t('app.tagline')}</Text>
               <Text style={styles.count}>
-                {(speciesCount === 0 ? 'Henüz boş sayfalar' : `${speciesCount} tür`).toLocaleUpperCase('tr-TR')}
+                {upper(speciesCount === 0 ? t('book.emptyCover') : t('common.speciesCount', { count: speciesCount }))}
               </Text>
             </>
           )}
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 6,
   },
-  // ikinci, ince çerçeve (dış çizgi)
+  // a second, thinner frame (the outer line)
   frameOuter: {
     position: 'absolute',
     top: '9%',

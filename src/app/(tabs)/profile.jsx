@@ -1,5 +1,5 @@
 /*
-  PROFİL EKRANI — Seviye, toplam sayılar, rozetler ve unvan basamakları.
+  PROFILE — level, totals, badges and the ladder of titles.
 */
 import { StyleSheet, Text, View } from 'react-native';
 import Screen from '../../components/ui/Screen';
@@ -10,7 +10,8 @@ import ProgressBar from '../../components/ui/ProgressBar';
 import Disclaimer from '../../components/ui/Disclaimer';
 import { type } from '../../components/ui/Typography';
 import { useStats } from '../../data/hooks';
-import { BADGES, LEVELS, levelFor } from '../../data/gamification';
+import { BADGES, LEVELS, badgeText, levelFor, levelTitle } from '../../data/gamification';
+import { t } from '../../i18n';
 import { colors, fonts } from '../../theme';
 
 function Stat({ value, label }) {
@@ -22,16 +23,17 @@ function Stat({ value, label }) {
   );
 }
 
-/** Mühür gibi yuvarlak rozet. Henüz kazanılmadıkları için silik. */
+/** A round, seal-like badge. Faded while not yet earned. */
 function Badge({ badge, earned = false }) {
+  const { title, description } = badgeText(badge);
   return (
-    <View style={styles.badge} accessibilityLabel={`${badge.title}: ${badge.description}${earned ? '' : ' (henüz kazanılmadı)'}`}>
+    <View style={styles.badge} accessibilityLabel={`${title}: ${description}${earned ? '' : t('profile.notEarned')}`}>
       <View style={[styles.sealRing, !earned && styles.sealRingLocked]}>
         <View style={[styles.seal, !earned && styles.sealLocked]}>
           <Icon name={badge.icon} size={24} color={earned ? colors.forest : colors.inkFaint} />
         </View>
       </View>
-      <Text style={[styles.badgeTitle, !earned && { color: colors.inkFaint }]}>{badge.title}</Text>
+      <Text style={[styles.badgeTitle, !earned && { color: colors.inkFaint }]}>{title}</Text>
     </View>
   );
 }
@@ -42,27 +44,27 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <PageHeader eyebrow="Kâşif kartı" title={current.title} />
+      <PageHeader eyebrow={t('profile.eyebrow')} title={levelTitle(current)} />
 
-      {/* Seviye ilerlemesi */}
+      {/* Level progress */}
       <Paper style={{ gap: 10 }}>
         <View style={styles.levelRow}>
-          <Text style={type.small}>{stats.points} puan</Text>
-          <Text style={type.small}>{next ? `${next.title}: ${next.minPoints}` : 'En yüksek unvan'}</Text>
+          <Text style={type.small}>{t('common.points', { count: stats.points })}</Text>
+          <Text style={type.small}>{next ? `${levelTitle(next)}: ${next.minPoints}` : t('profile.topLevel')}</Text>
         </View>
         <ProgressBar value={progress} />
       </Paper>
 
-      {/* Özet sayılar */}
+      {/* Totals */}
       <Paper style={styles.stats}>
-        <Stat value={stats.speciesCount} label="Tür" />
-        <Stat value={stats.points} label="Puan" />
-        <Stat value={stats.tripCount} label="Gezi" />
+        <Stat value={stats.speciesCount} label={t('profile.species')} />
+        <Stat value={stats.points} label={t('profile.points')} />
+        <Stat value={stats.tripCount} label={t('profile.trips')} />
       </Paper>
 
-      {/* Rozetler */}
+      {/* Badges */}
       <View style={styles.section}>
-        <Text style={type.h2}>Rozetler</Text>
+        <Text style={type.h2}>{t('profile.badges')}</Text>
         <View style={styles.badgeGrid}>
           {BADGES.map((b) => (
             <Badge key={b.key} badge={b} />
@@ -70,9 +72,9 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Unvan basamakları */}
+      {/* Ladder of titles */}
       <View style={styles.section}>
-        <Text style={type.h2}>Unvanlar</Text>
+        <Text style={type.h2}>{t('profile.levels')}</Text>
         <Paper style={{ paddingVertical: 10 }}>
           {LEVELS.map((lvl, i) => {
             const reached = i <= index;
@@ -81,8 +83,8 @@ export default function ProfileScreen() {
               <View key={lvl.key} style={styles.ladderRow}>
                 {i < LEVELS.length - 1 && <View style={styles.ladderLine} />}
                 <View style={[styles.ladderDot, { borderColor: reached ? colors.mustard : color }, reached && styles.ladderDotOn]} />
-                <Text style={[styles.ladderTitle, { color }]}>{lvl.title}</Text>
-                <Text style={[styles.ladderPts, { color }]}>{lvl.minPoints} puan</Text>
+                <Text style={[styles.ladderTitle, { color }]}>{levelTitle(lvl)}</Text>
+                <Text style={[styles.ladderPts, { color }]}>{t('common.points', { count: lvl.minPoints })}</Text>
               </View>
             );
           })}
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
   section: { gap: 12 },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 },
   badge: { width: '33.33%', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
-  // dış kesikli halka + iç mühür
+  // dashed outer ring + inner seal
   sealRing: {
     width: 70,
     height: 70,
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
   sealLocked: { backgroundColor: 'transparent', borderColor: colors.paperEdge },
   badgeTitle: { fontFamily: fonts.sansBold, fontSize: 12.5, lineHeight: 16, color: colors.ink, textAlign: 'center' },
   ladderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
-  // noktaları birleştiren ince çizgi
+  // thin line connecting the dots
   ladderLine: {
     position: 'absolute',
     left: 6.25,

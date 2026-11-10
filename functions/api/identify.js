@@ -1,7 +1,8 @@
 /*
-  YAYIN SUNUCUSU — Cloudflare Pages Functions
-  Uygulama Cloudflare Pages'e yüklendiğinde /api/identify adresi bu dosyayı çalıştırır.
-  API anahtarı Cloudflare panelinde "EVREN_API_KEY" adıyla ayarlanır (6. aşamada anlatılacak).
+  PRODUCTION SERVER — Cloudflare Pages Functions
+  Once the app is deployed to Cloudflare Pages, /api/identify runs this file.
+  API keys are set as environment variables in the Cloudflare dashboard (e.g. EVREN_API_KEY);
+  this is covered in stage 6.
 */
 import { handleIdentify } from '../../server/identify.js';
 

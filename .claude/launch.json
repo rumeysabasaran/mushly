@@ -2,15 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "mantar-defteri-web",
+      "name": "mushly-web",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["expo", "start", "--web", "--port", "8081"],
       "port": 8081
     },
     {
-      "name": "mantar-defteri-web-deneme",
+      "name": "mushly-web-mock",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set RECOGNIZER_ORDER=none&& npx expo start --web --port 8081"],
+      "port": 8081
+    },
+    {
+      "name": "mushly-web-mock-en",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set RECOGNIZER_ORDER=none&& set EXPO_PUBLIC_LANGUAGE=en&& npx expo start --web --port 8081"],
       "port": 8081
     }
   ]

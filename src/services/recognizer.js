@@ -1,47 +1,55 @@
 /*
-  TANIYICI ADAPTÖRÜ — Uygulamanın geri kalanı tür tanımayı sadece bu dosya üzerinden yapar.
-  Servisi değiştirmek istersek (ör. Kindwise mushroom.id) sadece sunucudaki kodu
-  değiştirmemiz yeterli; bu dosyanın döndürdüğü biçim aynı kalır.
+  RECOGNIZER ADAPTER — the rest of the app only identifies species through this file.
+  To switch services (e.g. Kindwise mushroom.id), only the server code changes;
+  the shape this file returns stays the same.
 
-  Adres: /api/identify
-  - Geliştirirken telefon bu isteği otomatik olarak bilgisayardaki Expo sunucusuna yollar
-    (src/app/api/identify+api.js). API anahtarı orada, bilgisayarda kalır.
-  - Yayında (6. aşama) app.json'daki "origin" adresine gider.
+  Endpoint: /api/identify
+  - During development the phone sends this request to the Expo dev server on the
+    computer (src/app/api/identify+api.js). The API key stays there, on the computer.
+  - In production (stage 6) it goes to the "origin" set in app.json.
 
-  Döndürülen sonuç:
+  The phone's language is sent along, so descriptions come back in Turkish or English.
+
+  Result shape:
   {
     isMushroom: true,
     photoTip: '...',
-    mock: false,                // deneme modunda true
-    candidates: [ { latinName, turkishName, confidence, rarity,
+    mock: false,                // true in demo mode
+    candidates: [ { latinName, commonName, confidence, rarity,
                     capShape, color, stem, habitat, season, funFact } ]
   }
+
+  Errors carry a `code` (e.g. 'timeout', 'no-key'); screens turn it into a
+  translated message with t(`errors.${code}`).
 */
 import NetInfo from '@react-native-community/netinfo';
 import { sanitizeResult } from './safety.js';
 import { photoBase64 } from './photos';
+import { language } from '../i18n';
 
-/** İnternet yok ya da sunucuya ulaşılamadı → fotoğraf bekleyenlere düşmeli */
+/** No internet, or the server can't be reached → the photo should go to pending */
 export class OfflineError extends Error {
   constructor() {
-    super('İnternet bağlantısı yok.');
+    super('No internet connection.');
     this.name = 'OfflineError';
+    this.code = 'offline';
   }
 }
 
-/** Sunucu bir hata döndürdü (anahtar yok, servis reddetti vb.) */
+/** The server returned an error (no key, service refused, …) */
 export class RecognitionError extends Error {
   constructor(message, code) {
     super(message);
     this.name = 'RecognitionError';
-    this.code = code;
+    this.code = code || 'generic';
   }
 }
 
 const ENDPOINT = '/api/identify';
-const TIMEOUT_MS = 90_000;
+// Long enough for the whole server chain: Evren (80 s) + Gemini fallback (60 s)
+const TIMEOUT_MS = 150_000;
 
-/** Telefon internete bağlı mı? (bilinmiyorsa "evet" sayılır, istek kendisi karar verir) */
+/** Is the phone online? (unknown counts as "yes"; the request itself decides) */
 export async function isOnline() {
   try {
     const state = await NetInfo.fetch();
@@ -51,7 +59,7 @@ export async function isOnline() {
   }
 }
 
-/** @param {object} photo  photos tablosundaki kayıt */
+/** @param {object} photo  a record from the photos table */
 export async function identify(photo) {
   if (!(await isOnline())) throw new OfflineError();
 
@@ -64,23 +72,23 @@ export async function identify(photo) {
     response = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image, mediaType: 'image/jpeg' }),
+      body: JSON.stringify({ image, mediaType: 'image/jpeg', language }),
       signal: controller.signal,
     });
   } catch (err) {
     if (err?.name === 'AbortError') {
-      throw new RecognitionError('Tanıma çok uzun sürdü. Lütfen tekrar dene.', 'timeout');
+      throw new RecognitionError('Identification took too long.', 'timeout');
     }
-    throw new OfflineError(); // ağ hatası
+    throw new OfflineError(); // network error
   } finally {
     clearTimeout(timer);
   }
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new RecognitionError(data.error || 'Tanıma sırasında bir sorun oluştu.', data.code);
+    throw new RecognitionError(data.error || 'Identification failed.', data.code);
   }
 
-  // Sunucu zaten süzdü; telefonda bir kez daha süzüyoruz (iki kat koruma).
+  // The server already filtered the result; filter once more on the phone (two layers).
   return { ...sanitizeResult(data), mock: data.mock === true };
 }

@@ -1,5 +1,5 @@
 /*
-  BEKLEME NOKTALARI — Tanıma sürerken sırayla zıplayan üç küçük yosun yeşili nokta.
+  ANALYZING DOTS — three small moss-green dots that bounce in turn while identifying.
 */
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -12,6 +12,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { t } from '../../i18n';
 import { colors } from '../../theme';
 
 function Dot({ delay }) {
@@ -36,7 +37,7 @@ function Dot({ delay }) {
 
 export default function AnalyzingDots() {
   return (
-    <View style={styles.row} accessibilityLabel="Tanınıyor" accessibilityRole="progressbar">
+    <View style={styles.row} accessibilityLabel={t('scan.analyzingLabel')} accessibilityRole="progressbar">
       <Dot delay={0} />
       <Dot delay={150} />
       <Dot delay={300} />

@@ -1,8 +1,8 @@
 /*
-  METRO AYARLARI — Expo'nun paketleyicisi.
-  Sadece web önizlemesi için iki ek ayar var (telefonu etkilemez):
-  - .wasm dosyaları: SQLite'ın tarayıcıda çalışan sürümü bunları kullanır.
-  - İki güvenlik başlığı: tarayıcı, SQLite'ın ihtiyaç duyduğu paylaşımlı belleğe ancak bunlarla izin verir.
+  METRO CONFIG — Expo's bundler.
+  Two extra settings, for the web preview only (they don't affect the phone):
+  - .wasm files: the in-browser build of SQLite uses them.
+  - Two security headers: the browser only allows the shared memory SQLite needs with these.
 */
 const { getDefaultConfig } = require('expo/metro-config');
 

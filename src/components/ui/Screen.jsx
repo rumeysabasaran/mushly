@@ -1,8 +1,8 @@
 /*
-  EKRAN ÇERÇEVESİ — Her ekranın kaydırılabilir gövdesi.
-  Üstte telefonun çentiği/saat alanı, altta menü kadar boşluk bırakır.
-  Ekran ilk açılışta hafifçe yukarı kayarak belirir.
-  keyboard: formlu ekranlarda klavye açılınca içerik yukarı itilir.
+  SCREEN — the scrollable body of every screen.
+  Leaves room for the notch / status bar on top and the tab bar at the bottom.
+  The screen fades in with a slight upward slide when first shown.
+  keyboard: on screens with forms, content is pushed up when the keyboard opens.
 */
 import { forwardRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';

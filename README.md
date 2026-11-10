@@ -1,116 +1,133 @@
-# 🍄 Mantar Defteri
+<div align="center">
 
-Orman yürüyüşlerinde gördüğün mantarları biriktirdiğin, telefonda çalışan bir keşif defteri.
+# 🍄 Mushly
 
-> Mantar Defteri bir keşif defteridir, tüketim rehberi değildir. Fotoğrafla tür tespiti kesin değildir.
+**A field journal that turns forest walks into a collection of mushroom discoveries.**
 
-Yol haritası ve teknik kararlar için: [PLAN.md](PLAN.md)
+Photograph a mushroom, get the three most likely species, and watch a hand-drawn notebook fill up page by page.
 
----
+[![Expo SDK 58](https://img.shields.io/badge/Expo-SDK%2058-000020?logo=expo&logoColor=white)](https://docs.expo.dev)
+[![React Native 0.88](https://img.shields.io/badge/React%20Native-0.88-61DAFB?logo=react&logoColor=black)](https://reactnative.dev)
+![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android-2e4a33)
+![Languages](https://img.shields.io/badge/i18n-English%20%7C%20T%C3%BCrk%C3%A7e-d2a03a)
 
-## Telefonda çalıştırma (Expo Go)
+[Türkçe](README.tr.md) · [Roadmap](docs/ROADMAP.md)
 
-Mantar Defteri artık bir **React Native (Expo)** telefon uygulaması. Geliştirirken uygulama
-bilgisayarında çalışır, telefonundaki **Expo Go** uygulaması onu kablosuz olarak açar.
+</div>
 
-**Bir kez yapılır:**
-1. Bilgisayarda [Node.js](https://nodejs.org) **22.13 veya üstü** kurulu olmalı
-   (terminalde `node --version` ile bakabilirsin).
-2. Telefonuna mağazadan **Expo Go** uygulamasını kur (Android: Play Store, iPhone: App Store).
-3. Bu klasörde bir terminal açıp paketleri indir (paket listesi değişince de tekrarlanır):
-   ```
-   npm install
-   ```
+<p align="center">
+  <img src="docs/screenshots/home.jpg" width="200" alt="Home screen" />
+  <img src="docs/screenshots/scan-result.jpg" width="200" alt="Identification result" />
+  <img src="docs/screenshots/book-cover.jpg" width="200" alt="Collection book cover" />
+  <img src="docs/screenshots/species-page.jpg" width="200" alt="Species page" />
+</p>
 
-**Her seferinde:**
-1. Telefon ve bilgisayar **aynı Wi-Fi**'de olmalı.
-2. Terminalde uygulamayı başlat:
-   ```
-   npm start
-   ```
-   (Windows güvenlik duvarı izin isterse "İzin ver" de.)
-3. Terminalde bir **QR kodu** belirir.
-   - **Android:** Expo Go'yu aç → "Scan QR code" ile kodu okut.
-   - **iPhone:** Telefonun kendi kamerasıyla kodu okut → çıkan bağlantıya dokun.
-4. Kodu kaydettiğinde telefondaki uygulama kendiliğinden yenilenir.
-5. Durdurmak için terminalde `Ctrl + C`.
+> [!IMPORTANT]
+> Mushly is a nature journal, **not a consumption guide**. It never shows edibility or toxicity information, and identifying a species from a photo is never certain.
 
-> Aynı Wi-Fi'de bağlanamazsan (ör. okul/iş ağı): `npx expo start --tunnel` dene.
+## Features
 
-### Bilgisayarda (tarayıcıda) hızlıca bakmak
-`npm run web` → `http://localhost:8081`. Bu sadece geliştirme kolaylığı içindir; kamera
-yerine dosya seçici açılır ve bazı telefon özellikleri (titreşim, telefonun tarih seçicisi) yoktur.
+- **Photo identification** — take or choose a photo; an AI vision model suggests the 3 most likely species with confidence scores.
+- **A collection book** — every new species gets its own page in a notebook you flip with your finger, with a description, a "Did you know?" fact and your photos.
+- **Field notes** — date, place (optional GPS), weather, who you were with and a free-form note for each find.
+- **Drafts** — not sure? Save the find as a draft and pick the species later.
+- **Works offline** — photos taken without a connection wait in a queue and are identified automatically once you're back online.
+- **"?" pages** — faded pages with hints for species you haven't found yet.
+- **Points, levels and badges** — the groundwork is in place; the rules arrive in stage 4.
+- **Bilingual** — the interface and the AI-written descriptions follow the phone's language (English or Turkish).
 
-### Web sürümüne geri dönmek istersen
-React Native'e geçmeden önceki web sürümü git'te ayrı bir dalda, `web-son` dalında duruyor.
-O sürüme bakmak için `git checkout web-son`, geri dönmek için `git checkout main`.
+## Safety by design
 
----
+The project has one non-negotiable rule: **no edibility, toxicity or consumption information, anywhere.**
 
-## Tür tanıma ve API anahtarı
+- The recognition schema has no field for it, and the prompt forbids it.
+- Every response passes through an allow-list filter ([`src/services/safety.js`](src/services/safety.js)) that drops unknown fields and any sentence containing a banned word stem, in both languages.
+- The filter runs twice: on the server and again on the phone.
 
-Tanıma için **Evren LLM API** (`gemma-4-31b` modeli) kullanılıyor; şu an ücretsiz.
-Anahtar yoksa uygulama **deneme modunda** çalışır: her fotoğrafa aynı üç türden sahte bir
-sonuç verir.
+## Tech stack
 
-### Anahtarı ayarlamak
-1. Evren panelindeki `/api-keys` sayfasından bir anahtar oluştur (`evren_llm_...` diye başlar)
-   ve kullanım şartlarını onayla.
-2. Proje klasöründeki `.env.example` dosyasının bir kopyasını oluştur, adını `.env` yap.
-3. `.env` dosyasını aç ve anahtarı yapıştır:
-   ```
-   EVREN_API_KEY=evren_llm_buraya-anahtarın
-   ```
-4. Terminalde `npm start` komutunu durdurup (`Ctrl + C`) yeniden başlat.
-   Terminalde `🍄 Tür tanıma: Evren · gemma-4-31b` yazısını görmelisin.
-
-### Model değiştirmek
-`.env` içine `EVREN_MODEL=qwen3-vl-30b` yazarsan daha hızlı (≈5 sn) ama daha yüzeysel
-metinler veren modele geçersin. Denemelerde en iyi sonucu `gemma-4-31b` verdi (≈12–20 sn).
-`mimo-v2.6-pro` ve `deepseek-v4.1-flash` 80 saniyede yanıt vermediği için önerilmez.
-
-### Otomatik yedek: Google Gemini (ücretsiz)
-`.env` içinde `GEMINI_API_KEY` varsa, Evren hata verdiğinde (kredi bitti, kota doldu,
-yanıt yok...) uygulama **kendiliğinden** Gemini'ye geçer. Kullanıcı bir şey fark etmez.
-- Anahtar: https://aistudio.google.com/apikey (kart gerekmez)
-- Model: `gemini-3.5-flash-lite` (~3–4 sn). `gemini-3.8-flash` daha güçlü ama ücretsiz
-  katmanda sık sık "çok yoğun" hatası veriyor.
-- Gizlilik: Google ücretsiz katmanda gönderilen içeriği ürünlerini geliştirmek için
-  kullanabilir. Sadece fotoğraf gider; konum ve saha notları gönderilmez.
-- Günlük ücretsiz limitler Google tarafından belirlenir; AI Studio'dan görebilirsin.
-
-Terminalde şunu görürsün: `🍄 Tür tanıma: Evren · gemma-4-31b → yedek: Gemini · gemini-3.5-flash-lite`
-
-Sırayı değiştirmek istersen (ör. 1 Aralık'tan sonra önce Gemini): `RECOGNIZER_ORDER=gemini,evren`
-
-### Ücretli yedek: Claude
-`ANTHROPIC_API_KEY` yazılırsa zincirin en sonuna eklenir (tanıma başına ~3–4 sent).
-Kod hazır duruyor; şimdilik gerek yok.
-
-### Anahtar neden güvende?
-- `.env` dosyası **GitHub'a gönderilmez** (`.gitignore` içinde).
-- Anahtar sadece bilgisayarda çalışan sunucu kodunda (`server/` ve `src/app/api/`) okunur.
-  Telefona giden uygulama kodunda yer almaz; telefon fotoğrafı `/api/identify` adresine
-  yollar, anahtarı sunucu ekler.
-- Yayına alırken (6. aşama) anahtar Cloudflare panelinde "Environment variables" bölümüne girilir.
-
-### Maliyet
-Evren modelleri platformun bildirdiğine göre **1 Aralık 2026'ya kadar ücretsiz**. Sonrasında
-fiyatlandırma "kredi" (CR) üzerinden olacak; o tarih yaklaşınca Evren panelinden kontrol et.
-Ücretli olursa Gemini yedeği zaten hazır; Evren hata verdiği anda otomatik devralır.
-
----
-
-## Klasörler kısaca
-
-| Klasör | Ne var? |
+| Area | Choice |
 |---|---|
-| `src/app/` | Ekranlar (dosya adı = ekran): Ana Sayfa, Kitap, Tara, Geziler, Profil, Bekleyenler |
-| `src/app/api/identify+api.js` | Tür tanıma adresi (bilgisayarda çalışır, API anahtarını kullanır) |
-| `src/components/` | Tekrar kullanılan parçalar (menü, kitap, kapak, süslemeler, ikonlar, formlar) |
-| `src/theme.js` | **Tüm renkler, yazı tipleri ve ölçüler** — görünümü buradan değiştirebilirsin |
-| `src/data/` | Telefondaki veritabanı (SQLite) ve oyun kuralları (puan, seviye, rozet) |
-| `src/services/` | Fotoğraf kaydetme, tür tanıma, **güvenlik süzgeci**, bekleyenler kuyruğu |
-| `server/` | Tanıma servislerine bağlanan kod (Evren → Gemini → Claude) |
-| `functions/` | Yayındaki sunucu için giriş dosyası (6. aşamada) |
-| `assets/` | Kâğıt dokusu gibi görseller |
+| Framework | React Native + [Expo](https://expo.dev) SDK 58, JavaScript |
+| Navigation | Expo Router (file-based, `src/app/`) |
+| Local data | SQLite (`expo-sqlite`), photos stored as files |
+| Animation & gestures | Reanimated 4 + Gesture Handler (page flip runs on the UI thread) |
+| Graphics | `react-native-svg` for icons, ornaments and paper texture |
+| Fonts | Cormorant Garamond (headings), Nunito (body) |
+| Localization | `expo-localization` + a small dictionary-based `t()` helper |
+| Recognition | Expo API route → Evren LLM API, with Google Gemini and Anthropic Claude as automatic fallbacks |
+
+## Getting started
+
+**Requirements:** [Node.js](https://nodejs.org) 22.13 or newer, and the **Expo Go** app on your phone ([iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)).
+
+```bash
+git clone https://github.com/rumeysabasaran/mushly.git
+cd mushly
+npm install
+npm start
+```
+
+Scan the QR code in the terminal (Android: from Expo Go; iPhone: with the Camera app). Your phone and computer need to be on the same Wi-Fi; if that's not possible, use `npx expo start --tunnel`.
+
+| Command | What it does |
+|---|---|
+| `npm start` | Starts the dev server for Expo Go |
+| `npm run web` | Quick preview in the browser at `http://localhost:8081` (no camera or haptics) |
+| `npm run doctor` | Checks the project for common Expo issues |
+
+Without an API key the app runs in **demo mode** and returns the same three sample species, so you can try the whole flow right away.
+
+To preview a specific language, set `EXPO_PUBLIC_LANGUAGE=en` or `EXPO_PUBLIC_LANGUAGE=tr` before starting the dev server.
+
+## Configuration
+
+Copy `.env.example` to `.env` and add at least one key. The `.env` file is git-ignored; keys are only read by the server code and never reach the phone.
+
+| Variable | Purpose |
+|---|---|
+| `EVREN_API_KEY` | Default recognition service ([Evren LLM API](https://evren-llmapi.ssyz.org.tr), free until 1 Dec 2026) |
+| `EVREN_MODEL` | Optional, defaults to `gemma-4-31b` |
+| `GEMINI_API_KEY` | Free fallback ([Google AI Studio](https://aistudio.google.com/apikey)) |
+| `GEMINI_MODEL` | Optional, defaults to `gemini-3.5-flash-lite` |
+| `ANTHROPIC_API_KEY` | Paid, last-resort fallback (Claude) |
+| `RECOGNIZER_ORDER` | Optional order, e.g. `gemini,evren` |
+
+Services with a key are tried in order; if one fails (quota, credit, timeout…), the next takes over. Restart `npm start` after changing `.env`; the terminal prints the active chain, e.g. `🍄 Species recognition: Evren · gemma-4-31b → fallback: Gemini · gemini-3.5-flash-lite`.
+
+> [!NOTE]
+> On Google's free tier, submitted content may be used to improve Google's products. Only the photo is sent; location and field notes never leave the phone.
+
+## Project structure
+
+```
+src/
+  app/                    Screens (Expo Router: file name = route)
+    (tabs)/               Home, Book, Scan, Trips, Profile
+    pending.jsx           Photos waiting to be identified
+    api/identify+api.js   Recognition endpoint (runs on the dev server)
+  components/             book/, scan/, layout/, ui/
+  data/                   SQLite database, live-query hooks, catalog, gamification
+  services/               Photos, recognizer client, offline queue, safety filter
+  i18n/                   en.js, tr.js and the t() helper
+  theme.js                Colors, fonts, sizes and shadows
+server/                   Prompt, fallback chain and service providers
+functions/                Production endpoint (Cloudflare Pages Functions)
+locales/                  Localized app name and permission texts
+docs/                     Roadmap and screenshots
+```
+
+## Roadmap
+
+Mushly is built in stages; see [docs/ROADMAP.md](docs/ROADMAP.md) for details and design decisions.
+
+- [x] Project structure, theme and core screens
+- [x] Photo capture and species recognition
+- [x] Collection book with page flipping
+- [x] Native app with React Native (Expo)
+- [x] English and Turkish
+- [ ] Points, badges and levels
+- [ ] Trips and profile
+- [ ] App icon, splash screen, hosted recognition server and installable builds
+
+The earlier web (PWA) version is preserved on the [`web-son`](https://github.com/rumeysabasaran/mushly/tree/web-son) branch.

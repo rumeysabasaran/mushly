@@ -1,41 +1,55 @@
 /*
-  OYUNLAŞTIRMA TANIMLARI — puanlar, seviyeler ve rozetler.
-  Kuralların mantığı 4. aşamada eklenecek; burada sadece "ne var" listesi duruyor.
+  GAMIFICATION — points, levels and badges.
+  The rules themselves arrive in stage 4; for now this is the list of what exists.
+  Display names live in the i18n dictionaries (`rarity.*`, `levels.*`, `badges.*`).
 */
+import { t } from '../i18n';
 
 export const RARITY = {
-  common: { key: 'common', label: 'Yaygın', points: 10 },
-  rare: { key: 'rare', label: 'Nadir', points: 25 },
-  veryRare: { key: 'veryRare', label: 'Çok Nadir', points: 50 },
+  common: { key: 'common', points: 10 },
+  rare: { key: 'rare', points: 25 },
+  veryRare: { key: 'veryRare', points: 50 },
 };
 
-/** Aynı türü tekrar bulunca kazanılan küçük bonus */
+export function rarityLabel(key) {
+  return RARITY[key] ? t(`rarity.${key}`) : '';
+}
+
+/** Small bonus for finding a species you already have */
 export const REPEAT_BONUS = 2;
 
-/** Seviyeler: minPoints puana ulaşınca o unvan açılır */
+/** Levels: the title unlocks once you reach minPoints */
 export const LEVELS = [
-  { key: 'caylak', title: 'Çaylak Toplayıcı', minPoints: 0 },
-  { key: 'gezgin', title: 'Orman Gezgini', minPoints: 60 },
-  { key: 'merakli', title: 'Mantar Meraklısı', minPoints: 180 },
-  { key: 'arastirmaci', title: 'Saha Araştırmacısı', minPoints: 450 },
-  { key: 'mikolog', title: 'Usta Mikolog', minPoints: 1000 },
+  { key: 'novice', minPoints: 0 },
+  { key: 'wanderer', minPoints: 60 },
+  { key: 'enthusiast', minPoints: 180 },
+  { key: 'researcher', minPoints: 450 },
+  { key: 'mycologist', minPoints: 1000 },
 ];
 
-/** Rozetler (icon: ui/Icon.jsx içindeki ikon adı) */
+export function levelTitle(level) {
+  return level ? t(`levels.${level.key}`) : '';
+}
+
+/** Badges (icon: an icon name from ui/Icon.jsx) */
 export const BADGES = [
-  { key: 'ilk-mantar', title: 'İlk Mantarım', description: 'Kitabına ilk türü ekledin.', icon: 'mushroom' },
-  { key: 'tur-5', title: '5 Tür', description: '5 farklı tür keşfettin.', icon: 'leaf' },
-  { key: 'tur-10', title: '10 Tür', description: '10 farklı tür keşfettin.', icon: 'leaf' },
-  { key: 'tur-25', title: '25 Tür', description: '25 farklı tür keşfettin.', icon: 'leaf' },
-  { key: 'sonbahar', title: 'Sonbahar Kâşifi', description: 'Bir sonbaharda 10 tür buldun.', icon: 'autumn' },
-  { key: 'ayni-gun-5', title: 'Verimli Gün', description: 'Aynı gün 5 farklı tür buldun.', icon: 'sun' },
-  { key: 'yagmur', title: 'Yağmur Sonrası Avcısı', description: 'Yağmurlu bir günde bir tür kaydettin.', icon: 'rain' },
-  { key: 'cok-nadir', title: 'Gözü Keskin', description: 'İlk "Çok Nadir" türünü buldun.', icon: 'sparkle' },
-  { key: 'gezi-5', title: 'Patika Dostu', description: '5 gezi tamamladın.', icon: 'trail' },
-  { key: 'sadik', title: 'Eski Tanıdık', description: 'Aynı türü 5 kez gördün.', icon: 'eye' },
+  { key: 'firstFind', icon: 'mushroom' },
+  { key: 'species5', icon: 'leaf' },
+  { key: 'species10', icon: 'leaf' },
+  { key: 'species25', icon: 'leaf' },
+  { key: 'autumn', icon: 'autumn' },
+  { key: 'busyDay', icon: 'sun' },
+  { key: 'afterRain', icon: 'rain' },
+  { key: 'sharpEye', icon: 'sparkle' },
+  { key: 'trailFriend', icon: 'trail' },
+  { key: 'oldFriend', icon: 'eye' },
 ];
 
-/** Puana göre mevcut seviyeyi ve bir sonrakine ilerlemeyi döndürür. */
+export function badgeText(badge) {
+  return { title: t(`badges.${badge.key}.title`), description: t(`badges.${badge.key}.description`) };
+}
+
+/** Returns the current level for a point total and the progress towards the next one. */
 export function levelFor(points) {
   let index = 0;
   LEVELS.forEach((lvl, i) => {

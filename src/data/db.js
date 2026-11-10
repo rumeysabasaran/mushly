@@ -1,44 +1,45 @@
 /*
-  YEREL VERİTABANI (SQLite)
+  LOCAL DATABASE (SQLite)
 
-  Tüm veriler telefonun içinde saklanır; internet gerekmez.
-  Her tablo bir "kayıt kutusu" gibidir: her satırda kaydın kimliği (id) ve kaydın
-  kendisi (doc, JSON metni) durur. Böylece kayıtlara istediğimiz alanı ekleyebiliriz;
-  tablo yapısını değiştirmek gerekmez. Sık arama yapılan alanlar için dizin var.
+  All data lives on the phone; no internet needed.
+  Each table works like a box of records: every row holds the record's id and the
+  record itself (doc, as JSON text). That way records can gain new fields without
+  changing the table structure. Frequently queried fields have an index.
 
-  Her kayıtta benzersiz `id` ve `updatedAt` (son değişiklik zamanı) bulunur.
-  İleride bulut senkronu eklersek hangi kaydın daha yeni olduğunu bunlardan anlarız.
+  Every record has a unique `id` and an `updatedAt` timestamp, so a future cloud
+  sync can tell which copy of a record is newer.
 
-  Kullanım (web sürümündeki Dexie'ye benzer):
+  Usage (similar to Dexie in the old web version):
     await tables.species.get(id)
     await tables.sightings.where('speciesId', id)
-    await tables.points.add({ ... })
-    await transaction(async () => { ... })     // ya hep ya hiç
+    await tables.points.put({ ... })
+    await transaction(async () => { ... })     // all or nothing
 */
 import * as SQLite from 'expo-sqlite';
 
+// File name kept from the app's original name, so existing journals keep working.
 const DB_NAME = 'mantar-defteri.db';
 
-// Tablolar ve hızlı arama yapılacak alanları
+// Tables and the fields they are indexed by
 const SCHEMA = {
-  species: ['speciesKey', 'firstFoundAt'], // kitaptaki tür sayfaları
-  sightings: ['speciesId', 'tripId', 'foundAt'], // her bir buluş (speciesId boşsa taslak)
-  photos: ['sightingId'], // fotoğraf dosyalarının adları
-  trips: ['startedAt', 'endedAt'], // geziler
-  pending: ['createdAt'], // internet yokken tanınmayı bekleyen fotoğraflar
-  points: ['sightingId', 'speciesId'], // puan hareketleri; toplam puan bunların toplamı
-  badges: ['earnedAt'], // kazanılan rozetler (id = rozet anahtarı)
+  species: ['speciesKey', 'firstFoundAt'], // species pages in the book
+  sightings: ['speciesId', 'tripId', 'foundAt'], // individual finds (no speciesId = draft)
+  photos: ['sightingId'], // photo file names
+  trips: ['startedAt', 'endedAt'], // trips
+  pending: ['createdAt'], // photos taken offline, waiting to be identified
+  points: ['sightingId', 'speciesId'], // point entries; the total score is their sum
+  badges: ['earnedAt'], // earned badges (id = badge key)
 };
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 let dbPromise = null;
 
-/** Veritabanını açar (ilk çağrıda tabloları kurar). Hep aynı bağlantıyı döndürür. */
+/** Opens the database (creating tables on first use). Always returns the same connection. */
 export function getDb() {
   if (!dbPromise) {
     dbPromise = openAndMigrate().catch((err) => {
-      dbPromise = null; // bir sonraki denemede yeniden açmayı dene
+      dbPromise = null; // try opening again next time
       throw err;
     });
   }
@@ -60,19 +61,29 @@ async function openAndMigrate() {
         );
       }
     }
-    statements.push(`PRAGMA user_version = ${SCHEMA_VERSION};`);
     await db.execAsync(statements.join('\n'));
   }
-  // İleride yapı değişirse: if (version < 2) { ... } şeklinde buraya eklenir.
 
+  if (version < 2) {
+    // v2: species names became language-neutral (`turkishName` → `commonName`)
+    await db.execAsync(`
+      UPDATE species
+         SET doc = json_remove(json_set(doc, '$.commonName', json_extract(doc, '$.turkishName')), '$.turkishName')
+       WHERE json_extract(doc, '$.turkishName') IS NOT NULL;
+    `);
+  }
+
+  // Future structure changes go here: if (version < 3) { ... }
+
+  if (version < SCHEMA_VERSION) await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
   return db;
 }
 
-// ---------------------------------------------------------------- değişiklik bildirimi
+// ---------------------------------------------------------------- change notifications
 
 /*
-  Bir kayıt yazılınca ekranlar kendiliğinden yenilensin diye küçük bir bildirim sistemi.
-  Aynı anda yapılan birçok yazma tek bir bildirimde toplanır.
+  A tiny notification system so screens refresh themselves when a record is written.
+  Many writes in a row are batched into a single notification.
 */
 const listeners = new Set();
 let notifyScheduled = false;
@@ -86,7 +97,7 @@ export function subscribe(listener) {
 
 function markChanged() {
   if (transactionDepth > 0) {
-    changedDuringTransaction = true; // işlem bitince bildir
+    changedDuringTransaction = true; // notify once the transaction ends
     return;
   }
   if (notifyScheduled) return;
@@ -98,8 +109,8 @@ function markChanged() {
 }
 
 /**
- * Birden fazla yazmayı "ya hep ya hiç" olarak yapar: arada hata çıkarsa hiçbiri kaydedilmez.
- * İç içe çağrılırsa dıştaki işleme katılır.
+ * Runs several writes as "all or nothing": if anything fails, none of them are saved.
+ * Nested calls join the outer transaction.
  */
 export async function transaction(task) {
   const db = await getDb();
@@ -121,24 +132,24 @@ export async function transaction(task) {
   return result;
 }
 
-// ---------------------------------------------------------------- tablolar
+// ---------------------------------------------------------------- tables
 
 const parse = (row) => (row ? JSON.parse(row.doc) : null);
 const field = (name) => {
-  if (!/^[A-Za-z]+$/.test(name)) throw new Error(`Geçersiz alan adı: ${name}`);
+  if (!/^[A-Za-z]+$/.test(name)) throw new Error(`Invalid field name: ${name}`);
   return `json_extract(doc, '$.${name}')`;
 };
 
 function makeTable(name) {
   return {
-    /** Kimliğe göre tek kayıt (yoksa null) */
+    /** One record by id (null if missing) */
     async get(id) {
       if (!id) return null;
       const db = await getDb();
       return parse(await db.getFirstAsync(`SELECT doc FROM ${name} WHERE id = ?`, id));
     },
 
-    /** Birden çok kimlik → kayıtlar (bulunamayanlar atlanır) */
+    /** Several ids → records (missing ones are skipped) */
     async bulkGet(ids) {
       const list = [...new Set(ids.filter(Boolean))];
       if (!list.length) return [];
@@ -150,7 +161,7 @@ function makeTable(name) {
       return rows.map(parse);
     },
 
-    /** Tüm kayıtlar; orderBy verilirse o alana göre sıralı */
+    /** All records, sorted by `orderBy` if given */
     async all({ orderBy, desc = false, limit } = {}) {
       const db = await getDb();
       let sql = `SELECT doc FROM ${name}`;
@@ -159,7 +170,7 @@ function makeTable(name) {
       return (await db.getAllAsync(sql)).map(parse);
     },
 
-    /** Bir alanı verilen değere eşit olan kayıtlar (değer null ise boş olanlar) */
+    /** Records whose field equals the value (null matches empty fields) */
     async where(fieldName, value) {
       const db = await getDb();
       const rows =
@@ -175,7 +186,7 @@ function makeTable(name) {
       return row?.n ?? 0;
     },
 
-    /** Yeni kayıt ekler (aynı kimlik varsa üzerine yazar) */
+    /** Inserts a record (overwrites one with the same id) */
     async put(record) {
       const db = await getDb();
       await db.runAsync(`INSERT OR REPLACE INTO ${name} (id, doc) VALUES (?, ?)`, record.id, JSON.stringify(record));
@@ -190,7 +201,7 @@ function makeTable(name) {
       });
     },
 
-    /** Kaydın sadece verilen alanlarını değiştirir */
+    /** Changes only the given fields of a record */
     async update(id, changes) {
       const current = await this.get(id);
       if (!current) return null;
@@ -216,15 +227,15 @@ function makeTable(name) {
 
 export const tables = Object.fromEntries(Object.keys(SCHEMA).map((name) => [name, makeTable(name)]));
 
-// ---------------------------------------------------------------- yardımcılar
+// ---------------------------------------------------------------- helpers
 
-/** Yeni benzersiz kimlik üretir */
+/** Generates a new unique id */
 export function newId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Yeni bir kayda ortak alanları (id, zamanlar) ekler */
+/** Adds the shared fields (id, timestamps) to a new record */
 export function withMeta(record) {
   const now = Date.now();
   return { id: newId(), createdAt: now, updatedAt: now, ...record };

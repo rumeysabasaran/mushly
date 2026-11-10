@@ -1,18 +1,19 @@
 /*
-  KİTAP — Sayfa çevirme motoru
+  BOOK — the page-flipping engine
 
-  Nasıl çalışır?
-  - Her sayfa, sol kenarından menteşeli bir kâğıt yapraktır.
-  - Kitabın "konumu" (position) tek bir sayıdır: 3 → 3. sayfa açık; 3.4 → 3. sayfa %40 çevrilmiş.
-    Her yaprağın açısı bu sayıdan hesaplanır: konumu geçmiş yapraklar sola çevrilmiş (-180°),
-    gelmemişler düz (0°), arada olan yaprak ise yarı yolda durur.
-  - Animasyon ve parmak takibi telefonun arayüz iş parçacığında çalışır; bu yüzden akıcıdır.
+  How it works
+  - Every page is a sheet of paper hinged on its left edge.
+  - The book's `position` is a single number: 3 → page 3 is open; 3.4 → page 3 is 40% turned.
+    Each leaf's angle is derived from that number: leaves before the position are turned to
+    the left (-180°), leaves after it lie flat (0°), and the one in between sits halfway.
+  - Animation and finger tracking run on the phone's UI thread, which keeps them smooth.
 
-  Kontroller:
-  - Parmakla yatay kaydırma (sayfa parmağı takip eder; yarı yoldan bırakınca tamamlanır)
-  - Dışarıdan ref ile: next(), prev(), jumpTo(i), flipTo(i)
+  Controls
+  - Horizontal swipe (the page follows your finger; releasing past halfway completes the turn)
+  - From outside via ref: next(), prev(), jumpTo(i), flipTo(i)
 
-  Sadece mevcut sayfa ve iki komşusu çizilir; böylece yüzlerce tür olsa da hızlı kalır.
+  Only the current page and its two neighbours are rendered, so it stays fast even with
+  hundreds of species.
 */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { Dimensions, Platform, StyleSheet, View } from 'react-native';
@@ -31,16 +32,16 @@ const FLIP_EASE = Easing.bezier(0.3, 0.7, 0.25, 1);
 
 const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
   const position = useSharedValue(index);
-  const width = useSharedValue(Dimensions.get('window').width - 40); // ölçülene kadar yaklaşık değer
+  const width = useSharedValue(Dimensions.get('window').width - 40); // rough value until measured
   const last = useSharedValue(pages.length - 1);
-  const busy = useSharedValue(false); // animasyon sürüyor mu
+  const busy = useSharedValue(false); // is an animation running
   const indexRef = useRef(index);
 
   useEffect(() => {
     last.value = pages.length - 1;
   }, [pages.length, last]);
 
-  // Dışarıdan dizin değiştiyse (ör. İçindekiler'den atlama) konumu oraya taşı
+  // If the index changed from outside (e.g. a jump from Contents), move the position there
   useEffect(() => {
     if (indexRef.current !== index) {
       indexRef.current = index;
@@ -58,7 +59,7 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
 
   const haptic = useCallback(() => Haptics.selectionAsync().catch(() => {}), []);
 
-  /** Konumu hedefe yumuşakça götürür, bitince yeni sayfayı bildirir */
+  /** Smoothly moves the position to the target, then reports the new page */
   const animateTo = useCallback(
     (target) => {
       'worklet';
@@ -87,12 +88,12 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
     () => ({
       next: () => flipBy(1),
       prev: () => flipBy(-1),
-      /** Animasyonsuz atla */
+      /** Jump without animation */
       jumpTo: (i) => {
         position.value = i;
         commit(i);
       },
-      /** Hedefin bir önceki sayfasına atla, sonra hedefe çevir (ör. yeni kayıttan sonra) */
+      /** Jump to the page before the target, then flip to it (e.g. after a new save) */
       flipTo: (i) => {
         if (i <= 0) return;
         position.value = i - 1;
@@ -103,11 +104,11 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
     [flipBy, position, commit]
   );
 
-  // ---------- Parmak hareketi ----------
+  // ---------- Finger gesture ----------
   const start = useSharedValue(0);
   const pan = usePanGesture({
     activeOffsetX: [-12, 12],
-    failOffsetY: [-14, 14], // dikey hareket: sayfa içeriği kayar, çevirme yok
+    failOffsetY: [-14, 14], // vertical movement scrolls the page content instead of flipping
     onActivate: () => {
       'worklet';
       start.value = Math.round(position.value);
@@ -115,7 +116,7 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
     onUpdate: (e) => {
       'worklet';
       if (busy.value) return;
-      const delta = -e.translationX / Math.max(1, width.value); // sola çekmek = ileri
+      const delta = -e.translationX / Math.max(1, width.value); // pulling left = forward
       const clamped = Math.max(-1, Math.min(1, delta));
       const target = Math.max(0, Math.min(last.value, start.value + clamped));
       position.value = target;
@@ -133,13 +134,13 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
     },
   });
 
-  // Kalan sayfa yığını: kitap ilerledikçe incelir
+  // The stack of remaining pages: thins out as you move through the book
   const remaining = pages.length - 1 - index;
   const edge = Math.min(12, 2 + remaining * 0.8);
 
   return (
-    // Genişlik ölçümü dıştaki kutuda yapılır; parmak hareketi katmanı içteki kutuyu sarar.
-    // (iPhone'da hareket katmanının içindeki kutunun ölçüsü bildirilmeyebiliyor.)
+    // Width is measured on the outer view; the gesture layer wraps the inner one.
+    // (On iPhone, a view inside the gesture layer may not report its size.)
     <View
       style={[styles.book, { marginRight: edge }]}
       onLayout={(e) => {
@@ -150,9 +151,9 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
       <GestureDetector gesture={pan}>
         <View style={StyleSheet.absoluteFill}>
           {/*
-            Sadece mevcut sayfa ve komşuları çizilir, TERS sırayla: sonra çizilen üstte durur,
-            böylece önceki sayfa hep sonrakinin üstündedir (gerçek bir kitaptaki gibi).
-            Bu sıralama zIndex'e gerek bırakmaz; zIndex iPhone'da animasyonla güvenilir değişmiyor.
+            Only the current page and its neighbours are rendered, in REVERSE order: whatever is
+            drawn later sits on top, so the previous page is always above the next (as in a real book).
+            This ordering avoids zIndex, which doesn't change reliably during animation on iPhone.
           */}
           {pages
             .map((page, i) => ({ page, i }))
@@ -171,11 +172,11 @@ const Book = forwardRef(function Book({ pages, index, onIndexChange }, ref) {
 
 export default Book;
 
-/** Tek bir yaprak: ön yüzünde sayfa, çevrilirken arka yüzünde kâğıdın tersi */
+/** A single leaf: the page on its front, the back of the paper showing while it turns */
 function Leaf({ i, position, current, backVariant, children }) {
   const leafStyle = useAnimatedStyle(() => {
     const p = position.value;
-    const f = Math.max(0, Math.min(1, p - i)); // bu yaprak ne kadar çevrildi (0…1)
+    const f = Math.max(0, Math.min(1, p - i)); // how far this leaf is turned (0…1)
     const visible = f < 1 && i <= Math.floor(p) + 1;
     return {
       transform: [{ perspective: 2000 }, { rotateY: `${-180 * f}deg` }],
@@ -183,7 +184,7 @@ function Leaf({ i, position, current, backVariant, children }) {
     };
   });
 
-  // Çevrilirken sayfa kararır; altındaki sayfa ise yavaşça aydınlanır
+  // The turning page darkens while the page beneath it slowly brightens
   const shadeStyle = useAnimatedStyle(() => {
     const p = position.value;
     const f = Math.max(0, Math.min(1, p - i));
@@ -194,7 +195,7 @@ function Leaf({ i, position, current, backVariant, children }) {
     return { opacity: shade * 0.9 };
   });
 
-  // Yarıdan sonra kâğıdın arkası görünür
+  // Past halfway, the back of the paper shows
   const backStyle = useAnimatedStyle(() => {
     const f = Math.max(0, Math.min(1, position.value - i));
     return { opacity: f > 0.5 ? 1 : 0 };
@@ -211,7 +212,7 @@ function Leaf({ i, position, current, backVariant, children }) {
       <View style={styles.face}>
         <PaperTexture />
         {children}
-        {/* cilt gölgesi */}
+        {/* spine shadow */}
         <LinearGradient
           colors={['rgba(70,50,20,0.14)', 'rgba(70,50,20,0)']}
           locations={[0, 0.04]}
@@ -245,7 +246,7 @@ function Leaf({ i, position, current, backVariant, children }) {
   );
 }
 
-/** Kapağın arka yüzü: kitap açılınca görünen, noktalı süslü iç kapak kâğıdı */
+/** The back of the cover: the dotted endpaper you see when the book opens */
 function Endpaper() {
   return (
     <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
@@ -262,7 +263,7 @@ function Endpaper() {
 
 const styles = StyleSheet.create({
   book: { flex: 1, minHeight: 0 },
-  // Sağ kenarda görünen kalan sayfa yığını
+  // The stack of remaining pages visible on the right edge
   stack: {
     top: 6,
     bottom: 6,
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
     shadowRadius: 9,
     shadowOffset: { width: 0, height: 8 },
   },
-  // Not: React Native 0.88'de StyleSheet.absoluteFillObject kaldırıldı; absoluteFill kullanılır.
+  // Note: React Native 0.88 removed StyleSheet.absoluteFillObject; use absoluteFill instead.
   leaf: { ...StyleSheet.absoluteFill, transformOrigin: 'left center' },
   face: {
     ...StyleSheet.absoluteFill,

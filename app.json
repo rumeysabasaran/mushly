@@ -1,22 +1,28 @@
 {
   "expo": {
-    "name": "Mantar Defteri",
-    "slug": "mantar-defteri",
+    "name": "Mushly",
+    "slug": "mushly",
     "version": "0.2.0",
     "orientation": "portrait",
-    "scheme": "mantardefteri",
+    "scheme": "mushly",
     "userInterfaceStyle": "light",
     "backgroundColor": "#f4eddc",
+    "locales": {
+      "en": "./locales/en.json",
+      "tr": "./locales/tr.json"
+    },
     "ios": {
+      "bundleIdentifier": "com.mushly.app",
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "Ormanda gördüğün mantarın fotoğrafını çekmek için kamerayı kullanır.",
-        "NSPhotoLibraryUsageDescription": "Galerindeki bir mantar fotoğrafını deftere eklemek için.",
-        "NSLocationWhenInUseUsageDescription": "Buluşun yerini saha notuna eklemek için, sadece sen istediğinde."
+        "CFBundleAllowMixedLocalizations": true,
+        "NSCameraUsageDescription": "Mushly uses the camera to photograph mushrooms you find in the forest.",
+        "NSPhotoLibraryUsageDescription": "Mushly reads your photo library so you can add a mushroom photo to your journal.",
+        "NSLocationWhenInUseUsageDescription": "Mushly adds the place of a find to your field notes, only when you ask it to."
       }
     },
     "android": {
-      "package": "com.mantardefteri.app",
+      "package": "com.mushly.app",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -36,17 +42,18 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Galerindeki bir mantar fotoğrafını deftere eklemek için.",
-          "cameraPermission": "Ormanda gördüğün mantarın fotoğrafını çekmek için kamerayı kullanır."
+          "photosPermission": "Mushly reads your photo library so you can add a mushroom photo to your journal.",
+          "cameraPermission": "Mushly uses the camera to photograph mushrooms you find in the forest."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Buluşun yerini saha notuna eklemek için, sadece sen istediğinde."
+          "locationWhenInUsePermission": "Mushly adds the place of a find to your field notes, only when you ask it to."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": false

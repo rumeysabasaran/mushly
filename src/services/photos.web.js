@@ -1,7 +1,7 @@
 /*
-  FOTOĞRAFLAR (web önizlemesi) — photos.js ile aynı işler, tarayıcıda.
-  Tarayıcıda dosya klasörü olmadığı için küçültülmüş fotoğraflar veritabanına
-  metin (data adresi) olarak yazılır. Sadece bilgisayarda geliştirirken kullanılır.
+  PHOTOS (web preview) — the same jobs as photos.js, in the browser.
+  The browser has no file folder, so resized photos are stored in the database
+  as text (data URIs). Only used while developing on the computer.
 */
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
@@ -23,8 +23,8 @@ export async function storePhotoFiles(asset) {
       thumb: await resized(asset.uri, asset.width, asset.height, 360, 0.75),
     };
   } catch (err) {
-    console.warn('[photos] kaydedilemedi', err);
-    throw new Error('Fotoğraf hazırlanamadı. Başka bir fotoğraf dener misin?');
+    console.warn('[photos] could not store', err);
+    throw Object.assign(new Error('The photo could not be prepared.'), { code: 'photo-prepare' });
   }
 }
 
@@ -37,5 +37,5 @@ export async function photoBase64(photo) {
 }
 
 export function deletePhotoFiles() {
-  /* veritabanı kaydıyla birlikte silinir */
+  /* deleted together with the database record */
 }

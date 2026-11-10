@@ -1,8 +1,8 @@
 /*
-  KUTLAMA — Kayıttan sonra gösterilen küçük, zarif sonuç kartı.
-  - Yeni tür: kitaba yeni bir sayfa eklenir (sayfa kayarak gelir, hardal pırıltı).
-  - Tekrar: "eski bir tanıdık", görülme sayısı.
-  - Taslak: sakin bir onay.
+  CELEBRATION — the small, elegant result card shown after saving.
+  - New species: a new page is added to the book (it slides in, with a mustard sparkle).
+  - Repeat: "an old acquaintance", with the sighting count.
+  - Draft: a calm confirmation.
 */
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -16,14 +16,15 @@ import Chip from '../ui/Chip';
 import Icon from '../ui/Icon';
 import { MushroomSketch } from '../ui/Ornaments';
 import { Eyebrow, type } from '../ui/Typography';
-import { RARITY } from '../../data/gamification';
-import { displayName } from '../../services/safety';
+import { rarityLabel } from '../../data/gamification';
+import { commonNameOf, displayName } from '../../services/safety';
+import { t } from '../../i18n';
 import { colors, fonts, shadows } from '../../theme';
 
-// Küçük bir kâğıt sağdan kayarak kitaba girer; pırıltılar ardından belirir
+// A small sheet of paper slides into the book from the right; sparkles follow
 const PAGE_IN = { opacity: 0, translateX: 40, rotate: 8 };
 const SPARK_IN = { opacity: 0, scale: 0.4, rotate: -20 };
-export default function Celebration({ outcome, onAgain, againLabel = 'Yeni tarama', againIcon = 'camera', hideBookLink = false }) {
+export default function Celebration({ outcome, onAgain, againLabel = t('scan.newScan'), againIcon = 'camera', hideBookLink = false }) {
   const { type: kind, species, pointsEarned } = outcome;
 
   useEffect(() => {
@@ -31,9 +32,9 @@ export default function Celebration({ outcome, onAgain, againLabel = 'Yeni taram
     else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }, [kind]);
 
-  // "Sayfasını aç" doğrudan ilgili sayfayı açar
+  // "Open its page" goes straight to the right page
   function openBook() {
-    router.navigate({ pathname: '/kitap', params: { sayfa: kind === 'draft' ? 'taslaklar' : species.id, t: Date.now() } });
+    router.navigate({ pathname: '/book', params: { page: kind === 'draft' ? 'drafts' : species.id, t: Date.now() } });
   }
 
   return (
@@ -51,12 +52,12 @@ export default function Celebration({ outcome, onAgain, againLabel = 'Yeni taram
                 <Icon name="sparkle" size={13} color={colors.mustard} />
               </Appear>
             </Appear>
-            <Eyebrow>Kitabına yeni bir sayfa eklendi</Eyebrow>
+            <Eyebrow>{t('celebration.newEyebrow')}</Eyebrow>
             <Text style={[styles.title]}>{displayName(species)}</Text>
-            {!!species.turkishName && <Text style={styles.latin}>{species.latinName}</Text>}
+            {!!commonNameOf(species) && <Text style={styles.latin}>{species.latinName}</Text>}
             <View style={styles.chips}>
-              <Chip label={RARITY[species.rarity]?.label} />
-              <Chip variant="points" label={`+${pointsEarned} puan`} />
+              <Chip label={rarityLabel(species.rarity)} />
+              <Chip variant="points" label={t('common.pointsEarned', { count: pointsEarned })} />
             </View>
           </>
         )}
@@ -64,11 +65,11 @@ export default function Celebration({ outcome, onAgain, againLabel = 'Yeni taram
         {kind === 'repeat' && (
           <>
             <Icon name="eye" size={40} color={colors.moss} style={{ marginBottom: 4 }} />
-            <Eyebrow>Eski bir tanıdık</Eyebrow>
+            <Eyebrow>{t('celebration.repeatEyebrow')}</Eyebrow>
             <Text style={styles.title}>{displayName(species)}</Text>
-            <Text style={[type.muted, type.center]}>Bu türü {species.seenCount}. kez gördün. Fotoğraf sayfasına eklendi.</Text>
+            <Text style={[type.muted, type.center]}>{t('celebration.repeatText', { count: species.seenCount })}</Text>
             <View style={styles.chips}>
-              <Chip variant="points" label={`+${pointsEarned} puan`} />
+              <Chip variant="points" label={t('common.pointsEarned', { count: pointsEarned })} />
             </View>
           </>
         )}
@@ -76,16 +77,16 @@ export default function Celebration({ outcome, onAgain, againLabel = 'Yeni taram
         {kind === 'draft' && (
           <>
             <Icon name="book" size={40} color={colors.moss} style={{ marginBottom: 4 }} />
-            <Eyebrow>Taslak olarak kaydedildi</Eyebrow>
-            <Text style={styles.title}>Sonra karar verebilirsin</Text>
-            <Text style={[type.muted, type.center]}>Fotoğraf ve notların defterin taslaklar bölümünde duruyor.</Text>
+            <Eyebrow>{t('celebration.draftEyebrow')}</Eyebrow>
+            <Text style={styles.title}>{t('celebration.draftTitle')}</Text>
+            <Text style={[type.muted, type.center]}>{t('celebration.draftText')}</Text>
           </>
         )}
 
         <View style={styles.actions}>
           <Button block icon={againIcon} title={againLabel} onPress={onAgain} />
           {!hideBookLink && (
-            <Button block variant="ghost" icon="book" title={kind === 'draft' ? 'Taslaklara git' : 'Sayfasını aç'} onPress={openBook} />
+            <Button block variant="ghost" icon="book" title={kind === 'draft' ? t('celebration.toDrafts') : t('celebration.openPage')} onPress={openBook} />
           )}
         </View>
       </Paper>

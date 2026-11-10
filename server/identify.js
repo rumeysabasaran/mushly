@@ -1,37 +1,37 @@
 /*
-  TÜR TANIMA — SUNUCU TARAFI
+  SPECIES RECOGNITION — SERVER SIDE
 
-  Bu dosya SADECE sunucuda çalışır:
-  - Bilgisayarında: `npm run dev` çalışırken Vite içinde
-  - Yayında: Cloudflare Pages Functions içinde (functions/api/identify.js)
+  This file runs ONLY on the server:
+  - During development: inside the Expo dev server (src/app/api/identify+api.js)
+  - In production: inside Cloudflare Pages Functions (functions/api/identify.js)
 
-  API anahtarları burada kullanılır ve telefona hiçbir zaman gönderilmez.
-  Telefon fotoğrafı /api/identify adresine yollar; bu kod anahtarı ekleyip
-  servise iletir, gelen yanıtı süzüp geri döndürür.
+  API keys are used here and are never sent to the phone. The phone posts the photo
+  to /api/identify; this code adds the key, forwards the photo to the service, then
+  filters the reply and sends it back.
 
-  OTOMATİK YEDEKLEME ZİNCİRİ
-  Anahtarı .env içinde olan servisler sırayla denenir:
-      1. Evren   (EVREN_API_KEY)      — ücretsiz, varsayılan
-      2. Gemini  (GEMINI_API_KEY)     — ücretsiz yedek
-      3. Claude  (ANTHROPIC_API_KEY)  — ücretli yedek
-  Bir servis hata verirse (kredi bitti, kota doldu, yanıt yok...) bir sonrakine geçilir.
-  Sırayı değiştirmek için: RECOGNIZER_ORDER=gemini,evren
-  Hiç anahtar yoksa bilgisayarda deneme modu çalışır.
+  AUTOMATIC FALLBACK CHAIN
+  Services whose key is set in .env are tried in order:
+      1. Evren   (EVREN_API_KEY)      — free, default
+      2. Gemini  (GEMINI_API_KEY)     — free fallback
+      3. Claude  (ANTHROPIC_API_KEY)  — paid fallback
+  If a service fails (out of credit, quota reached, no reply…) the next one is tried.
+  To change the order: RECOGNIZER_ORDER=gemini,evren
+  With no keys at all, the dev server runs in demo mode.
 */
 import { sanitizeResult } from '../src/services/safety.js';
-import { IdentifyError } from './prompt.js';
+import { IdentifyError, buildPrompt, normalizeLanguage, resultSchema } from './prompt.js';
 import { askEvren, DEFAULT_EVREN_MODEL } from './providers/evren.js';
 import { askGemini, DEFAULT_GEMINI_MODEL } from './providers/gemini.js';
 import { askClaude, CLAUDE_MODEL } from './providers/claude.js';
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB (telefon zaten ~300 KB'a küçültüyor)
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB (the phone already shrinks photos to ~300 KB)
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const DEFAULT_ORDER = ['evren', 'gemini', 'claude'];
 
-// Bu hatalar fotoğraftan kaynaklanır; başka servise geçmek işe yaramaz.
+// These errors are caused by the photo itself; switching services won't help.
 const NO_FALLBACK = new Set(['too-large']);
 
-/** Her servisin anahtarı ve nasıl çağrılacağı */
+/** Each service's key and how to call it */
 const PROVIDERS = {
   evren: (env) =>
     env.EVREN_API_KEY && {
@@ -53,7 +53,7 @@ const PROVIDERS = {
     },
 };
 
-/** Anahtarı olan servisleri deneme sırasıyla döndürür. */
+/** Returns the services that have a key, in the order they should be tried. */
 export function pickProviders(env) {
   const order = env.RECOGNIZER_ORDER
     ? env.RECOGNIZER_ORDER.split(',').map((s) => s.trim().toLowerCase())
@@ -62,43 +62,46 @@ export function pickProviders(env) {
 }
 
 /**
- * Gelen isteği doğrular, servisleri sırayla dener, sonucu süzüp döndürür.
- * Her zaman { status, body } döner; çağıran taraf bunu HTTP yanıtına çevirir.
+ * Validates the request, tries the services in order, and returns the filtered result.
+ * Always returns { status, body }; the caller turns it into an HTTP response.
  */
 export async function handleIdentify(body, env) {
   const providers = pickProviders(env);
   if (providers.length === 0) {
-    return reply(500, { code: 'no-key', error: 'Sunucuda API anahtarı ayarlanmamış.' });
+    return reply(500, { code: 'no-key', error: 'No API key is configured on the server.' });
   }
 
   const image = body?.image;
   const mediaType = body?.mediaType;
   if (typeof image !== 'string' || !image || !ALLOWED_TYPES.includes(mediaType)) {
-    return reply(400, { code: 'bad-request', error: 'Fotoğraf okunamadı.' });
+    return reply(400, { code: 'bad-request', error: 'The photo could not be read.' });
   }
   if (image.length * 0.75 > MAX_IMAGE_BYTES) {
-    return reply(413, { code: 'too-large', error: 'Fotoğraf çok büyük.' });
+    return reply(413, { code: 'too-large', error: 'The photo is too large.' });
   }
+
+  const language = normalizeLanguage(body?.language);
+  const input = { image, mediaType, prompt: buildPrompt(language), schema: resultSchema(language) };
 
   let lastError = null;
   for (const provider of providers) {
     try {
-      const raw = await provider.ask({ image, mediaType });
-      if (lastError) console.info(`[identify] Yedek servis kullanıldı: ${provider.label}`);
+      const raw = await provider.ask(input);
+      if (lastError) console.info(`[identify] Fallback service used: ${provider.label}`);
       return reply(200, sanitizeResult(raw));
     } catch (err) {
       if (!(err instanceof IdentifyError)) {
-        console.error(`[identify] ${provider.label} beklenmeyen hata:`, err);
-        lastError = new IdentifyError('unknown', 'Beklenmeyen bir hata oluştu.', 500);
+        console.error(`[identify] ${provider.label} unexpected error:`, err);
+        lastError = new IdentifyError('unknown', 'An unexpected error occurred.', 500);
       } else {
-        console.warn(`[identify] ${provider.label} başarısız: ${err.code}`);
+        console.warn(`[identify] ${provider.label} failed: ${err.code}`);
         lastError = err;
         if (NO_FALLBACK.has(err.code)) break;
       }
     }
   }
 
-  // Hiçbir servis başaramadı: son hatayı kullanıcıya göster
+  // No service succeeded: report the last error
   return reply(lastError.status, { code: lastError.code, error: lastError.message });
 }
 

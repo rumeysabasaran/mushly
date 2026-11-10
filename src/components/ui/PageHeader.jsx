@@ -1,5 +1,5 @@
 /*
-  EKRAN BAŞLIĞI — Üstte küçük bir etiket, büyük serif başlık ve köşede eğrelti süsü.
+  PAGE HEADER — a small label on top, a large serif title and a fern ornament in the corner.
 */
 import { StyleSheet, Text, View } from 'react-native';
 import { FernSprig } from './Ornaments';

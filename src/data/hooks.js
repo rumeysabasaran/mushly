@@ -1,15 +1,15 @@
 /*
-  VERİ KANCALARI — Ekranlar veriyi buradan okur.
-  useLiveQuery sayesinde veritabanı değişince ekran kendiliğinden yenilenir
-  (web sürümündeki Dexie'nin useLiveQuery'si ile aynı fikir).
+  DATA HOOKS — screens read their data through these.
+  Thanks to useLiveQuery, a screen refreshes itself whenever the database changes
+  (the same idea as Dexie's useLiveQuery in the old web version).
 */
 import { useEffect, useRef, useState } from 'react';
 import { tables, subscribe } from './db.js';
 import { photoUri } from '../services/photos';
 
 /**
- * Sorguyu çalıştırır, veritabanı her değiştiğinde yeniden çalıştırır.
- * Yüklenirken `fallback` döner.
+ * Runs the query, and runs it again whenever the database changes.
+ * Returns `fallback` while loading.
  */
 export function useLiveQuery(query, deps = [], fallback = undefined) {
   const [value, setValue] = useState(fallback);
@@ -24,9 +24,9 @@ export function useLiveQuery(query, deps = [], fallback = undefined) {
       queryRef
         .current()
         .then((result) => {
-          if (alive && mine === version) setValue(result); // sadece en son sorgunun sonucu
+          if (alive && mine === version) setValue(result); // only the latest query's result
         })
-        .catch((err) => console.warn('[veri]', err));
+        .catch((err) => console.warn('[data]', err));
     };
     run();
     const unsubscribe = subscribe(run);
@@ -42,7 +42,7 @@ export function useLiveQuery(query, deps = [], fallback = undefined) {
 
 const EMPTY_STATS = { speciesCount: 0, points: 0, tripCount: 0, pendingCount: 0, badgeCount: 0 };
 
-/** Profil ve ana sayfadaki özet sayılar */
+/** Summary numbers shown on the home and profile screens */
 export function useStats() {
   return useLiveQuery(
     async () => {
@@ -61,7 +61,7 @@ export function useStats() {
   );
 }
 
-/** Son buluşlar (en yeni önce), tür bilgisiyle birlikte */
+/** Most recent finds (newest first), with their species */
 export function useRecentSightings(limit = 5) {
   return useLiveQuery(
     async () => {
@@ -76,8 +76,8 @@ export function useRecentSightings(limit = 5) {
 }
 
 /**
- * Kitabın bütün verisi: türler (bulunma sırasına göre), türlere göre buluşlar, taslaklar.
- * Yüklenirken undefined döner.
+ * Everything the book needs: species (in order found), finds per species, and drafts.
+ * Returns undefined while loading.
  */
 export function useBookData() {
   return useLiveQuery(async () => {
@@ -97,14 +97,14 @@ export function useBookData() {
   }, []);
 }
 
-/** Bekleyen fotoğraflar (en eski önce) */
+/** Pending photos (oldest first) */
 export function usePendingList() {
   return useLiveQuery(() => tables.pending.all({ orderBy: 'createdAt' }), [], []);
 }
 
 /**
- * Veritabanındaki bir fotoğrafı <Image> içinde gösterilebilir adrese çevirir.
- * variant: 'thumb' (küçük) veya 'full' (büyük)
+ * Turns a photo record into a URI an <Image> can display.
+ * variant: 'thumb' (small) or 'full' (large)
  */
 export function usePhotoUri(photoId, variant = 'thumb') {
   return useLiveQuery(

@@ -1,19 +1,19 @@
 /*
-  KÂĞIT — Uygulamanın temel yüzeyi: krem kâğıt, hafif gren dokusu, ince kenar, yumuşak gölge.
-  - <Paper>             kart
-  - <Paper onPress>     dokunulabilir kart (basınca hafifçe içe göçer)
-  - <PaperTexture />    herhangi bir yüzeyin üstüne gren dokusu ekler
+  PAPER — the app's base surface: cream paper, light grain, a thin edge and a soft shadow.
+  - <Paper>             a card
+  - <Paper onPress>     a tappable card (sinks in slightly when pressed)
+  - <PaperTexture />    adds the grain texture on top of any surface
 */
 import { useId } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Defs, Image as SvgImage, Pattern, Rect } from 'react-native-svg';
 import { colors, paperNoise, radius, shadows } from '../../theme';
 
-const TILE = 128; // doku karosunun ekrandaki boyu (nokta)
+const TILE = 128; // on-screen size of one texture tile (points)
 
 /*
-  Gren dokusu, küçük bir görselin desen olarak yan yana döşenmesiyle çizilir.
-  (Görselin kendi "tekrarla" ayarı iPhone'da yüzeyin tamamını kaplamıyordu.)
+  The grain is drawn by tiling a small image as an SVG pattern.
+  (The image's own "repeat" mode didn't cover the whole surface on iPhone.)
 */
 export function PaperTexture({ borderRadius = 0, opacity = 1 }) {
   const id = `grain-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;

@@ -1,9 +1,9 @@
 /*
-  BUTONLAR
-  - primary: koyu yeşil, ana iş ("Deftere kaydet")
-  - ghost:   çerçeveli, ikincil iş ("Galeriden yükle")
-  - text:    yazı gibi, çerçevesiz ("Vazgeç")
-  Dokunma alanı en az 48 px; basınca hafifçe küçülür ve telefon kısa bir titreşim verir.
+  BUTTONS
+  - primary: dark green, the main action ("Save to journal")
+  - ghost:   outlined, a secondary action ("Choose from gallery")
+  - text:    looks like text, no border ("Cancel")
+  The touch target is at least 48 px; it shrinks slightly when pressed and the phone gives a short haptic tap.
 */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +18,7 @@ export default function Button({
   block = false,
   small = false,
   disabled = false,
-  color, // text butonda yazı rengini değiştirmek için
+  color, // to change the label color of a text button
   style,
   haptic = true,
   accessibilityLabel,

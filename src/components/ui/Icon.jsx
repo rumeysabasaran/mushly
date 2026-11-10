@@ -1,6 +1,6 @@
 /*
-  İKONLAR — İnce çizgili, el çizimi hissi veren basit ikonlar (web sürümüyle aynı çizimler).
-  Kullanım: <Icon name="camera" size={24} color={colors.forest} />
+  ICONS — simple thin-line icons with a hand-drawn feel (the same drawings as the web version).
+  Usage: <Icon name="camera" size={24} color={colors.forest} />
 */
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '../../theme';
@@ -20,7 +20,7 @@ const PATHS = {
     'M4.5 16.5 9 12l3.5 3.5 2-2 5 4.5',
     'M15.5 9.5a1.3 1.3 0 1 0 0-.01',
   ],
-  // katlanmış patika haritası
+  // folded trail map
   trail: ['M9 5 4 7v12l5-2 6 2 5-2V5l-5 2z', 'M9 5v12M15 7v12'],
   user: ['M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6'],
   mushroom: [

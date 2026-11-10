@@ -1,13 +1,13 @@
 /*
-  KİTAP EKRANI — Koleksiyon kitabı.
+  BOOK — the collection book.
 
-  Sayfa sırası:
-    Kapak → İçindekiler → Tür sayfaları (bulunma sırasıyla) → Taslaklar
-    → "?" sayfaları (isteğe bağlı) → Son sayfa
+  Page order:
+    Cover → Contents → Species pages (in order found) → Drafts
+    → "?" pages (optional) → Final page
 
-  Adres: /kitap                    → kaldığın sayfa (ilk açılışta kapak)
-         /kitap?sayfa=<tür-id>     → kitap o sayfaya çevrilerek açılır (ör. yeni kayıttan sonra)
-         /kitap?sayfa=taslaklar    → taslaklar sayfası
+  Routes: /book                    → the page you left (the cover on first open)
+          /book?page=<species-id>  → opens by flipping to that page (e.g. after a new save)
+          /book?page=drafts        → the drafts page
 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -22,12 +22,13 @@ import { Eyebrow } from '../../components/ui/Typography';
 import { useBookData } from '../../data/hooks';
 import { MYSTERY_SPECIES } from '../../data/catalog';
 import { speciesKeyOf } from '../../services/collection';
-import { displayName } from '../../services/safety';
+import { commonNameOf, displayName } from '../../services/safety';
+import { t } from '../../i18n';
 import { colors, fonts, layout, space } from '../../theme';
 
-const MYSTERY_KEY = 'mantar-defteri.showMystery';
+const MYSTERY_KEY = 'mushly.showMystery';
 
-/** Cihazda hatırlanan küçük bir aç/kapa tercihi */
+/** A small on/off preference remembered on the device */
 function useRememberedToggle(key, fallback) {
   const [value, setValue] = useState(fallback);
   useEffect(() => {
@@ -60,7 +61,7 @@ function ArrowButton({ icon, onPress, disabled, label }) {
 }
 
 export default function BookScreen() {
-  const { sayfa: pageKey, t: requestId } = useLocalSearchParams();
+  const { page: pageKey, t: requestId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const data = useBookData();
   const [showMystery, setShowMystery] = useRememberedToggle(MYSTERY_KEY, true);
@@ -69,7 +70,7 @@ export default function BookScreen() {
   const bookRef = useRef(null);
   const handledRequest = useRef(null);
 
-  // Sayfaların listesi: her biri { key, node }
+  // The list of pages: each one is { key, node }
   const pages = useMemo(() => {
     if (!data) return [];
     const { species, bySpecies, drafts } = data;
@@ -77,7 +78,7 @@ export default function BookScreen() {
     const found = new Set(species.map((s) => s.speciesKey));
     const mysteries = showMystery ? MYSTERY_SPECIES.filter((m) => !found.has(speciesKeyOf(m.latinName))) : [];
 
-    // Sayfa numarası = kitaptaki sırası (kapak 0, içindekiler 1)
+    // Page number = position in the book (cover 0, contents 1)
     const firstSpeciesPage = 2;
     const draftsPage = drafts.length ? firstSpeciesPage + species.length : null;
     const firstMysteryPage = firstSpeciesPage + species.length + (drafts.length ? 1 : 0);
@@ -99,7 +100,7 @@ export default function BookScreen() {
               key: s.id,
               no: i + 1,
               name: displayName(s),
-              latin: s.turkishName ? s.latinName : '',
+              latin: commonNameOf(s) ? s.latinName : '',
               page: firstSpeciesPage + i,
             }))}
             draftCount={drafts.length}
@@ -132,7 +133,7 @@ export default function BookScreen() {
 
     if (drafts.length) {
       list.push({
-        key: 'taslaklar',
+        key: 'drafts',
         node: <DraftsPage number={draftsPage} drafts={drafts} onOpenDraft={(sighting) => setSheet({ type: 'draft', sighting })} />,
       });
     }
@@ -147,12 +148,12 @@ export default function BookScreen() {
 
   const last = pages.length - 1;
 
-  // Sayfa sayısı azaldıysa (ör. buluş silindi) dizini sınırla
+  // If the number of pages shrank (e.g. a find was deleted), clamp the index
   useEffect(() => {
     if (pages.length && index > last) bookRef.current?.jumpTo(last);
   }, [pages.length, index, last]);
 
-  // ?sayfa=<anahtar> ile gelindiyse: bir önceki sayfada aç, sonra o sayfaya çevir
+  // Opened with ?page=<key>: open one page before it, then flip to it
   useEffect(() => {
     const request = `${pageKey}:${requestId}`;
     if (!pages.length || !pageKey || handledRequest.current === request) return;
@@ -168,10 +169,10 @@ export default function BookScreen() {
     <View style={[styles.screen, { paddingTop: insets.top + 20, paddingBottom: layout.navHeight + insets.bottom + 16 }]}>
       <View style={styles.bar}>
         <View>
-          <Eyebrow>Koleksiyon</Eyebrow>
-          <Text style={styles.title}>Defterin</Text>
+          <Eyebrow>{t('book.eyebrow')}</Eyebrow>
+          <Text style={styles.title}>{t('book.title')}</Text>
         </View>
-        {data && <Text style={styles.count}>{data.species.length} tür</Text>}
+        {data && <Text style={styles.count}>{t('common.speciesCount', { count: data.species.length })}</Text>}
       </View>
 
       {pages.length > 0 ? (
@@ -181,12 +182,12 @@ export default function BookScreen() {
       )}
 
       <View style={styles.controls}>
-        <ArrowButton icon="chevronLeft" label="Önceki sayfa" onPress={() => bookRef.current?.prev()} disabled={index <= 0} />
+        <ArrowButton icon="chevronLeft" label={t('book.prevPage')} onPress={() => bookRef.current?.prev()} disabled={index <= 0} />
         <Pressable onPress={() => bookRef.current?.jumpTo(1)} disabled={pages.length < 2} style={styles.tocBtn} accessibilityRole="button">
-          <Text style={styles.tocText}>İçindekiler</Text>
+          <Text style={styles.tocText}>{t('book.toc')}</Text>
         </Pressable>
-        <Text style={styles.pos}>{index === 0 ? 'Kapak' : `${index} / ${last}`}</Text>
-        <ArrowButton icon="chevronRight" label="Sonraki sayfa" onPress={() => bookRef.current?.next()} disabled={index >= last} />
+        <Text style={styles.pos}>{index === 0 ? t('book.cover') : `${index} / ${last}`}</Text>
+        <ArrowButton icon="chevronRight" label={t('book.nextPage')} onPress={() => bookRef.current?.next()} disabled={index >= last} />
       </View>
 
       {sheet?.type === 'photo' && <PhotoSheet photoId={sheet.photoId} species={sheet.species} onClose={closeSheet} />}

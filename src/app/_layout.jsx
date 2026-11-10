@@ -1,7 +1,7 @@
 /*
-  UYGULAMANIN ANA ÇERÇEVESİ
-  Açılışta: yazı tiplerini yükler, veritabanını hazırlar, bekleyen fotoğrafları izlemeye başlar.
-  Hepsi hazır olunca açılış ekranı kalkar.
+  ROOT LAYOUT
+  On launch: loads the fonts, prepares the database and starts watching pending photos.
+  The splash screen is hidden once everything is ready.
 */
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -24,6 +24,7 @@ import {
 } from '@expo-google-fonts/nunito';
 import { getDb } from '../data/db';
 import { startPendingWatcher } from '../services/pendingQueue';
+import { t } from '../i18n';
 import { colors } from '../theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -49,7 +50,7 @@ export default function RootLayout() {
         stopWatcher = await startPendingWatcher();
       })
       .catch((err) => {
-        console.error('[veritabanı]', err);
+        console.error('[database]', err);
         setDbState('error');
       });
     return () => stopWatcher?.();
@@ -66,9 +67,7 @@ export default function RootLayout() {
   if (dbState === 'error') {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.cream }}>
-        <Text style={{ textAlign: 'center', color: colors.ink, fontSize: 16 }}>
-          Defter açılamadı. Uygulamayı kapatıp yeniden açmayı dener misin?
-        </Text>
+        <Text style={{ textAlign: 'center', color: colors.ink, fontSize: 16 }}>{t('app.openFailed')}</Text>
       </View>
     );
   }
@@ -78,7 +77,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="bekleyenler" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="pending" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </GestureHandlerRootView>
   );

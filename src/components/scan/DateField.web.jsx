@@ -1,5 +1,5 @@
 /*
-  TARİH ALANI (web önizlemesi) — tarayıcının kendi tarih kutusu.
+  DATE FIELD (web preview) — the browser's own date input.
 */
 import { createElement } from 'react';
 import { timeToInputValue, todayInputValue, inputValueToTime } from '../../data/fieldNotes';

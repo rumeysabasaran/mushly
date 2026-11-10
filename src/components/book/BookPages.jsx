@@ -1,6 +1,6 @@
 /*
-  KİTAP SAYFALARI — Kitabın içindeki her sayfa türü burada.
-  Her sayfa aynı kâğıt çerçeveyi (Page) kullanır; içerik uzunsa sayfa içinde kayar.
+  BOOK PAGES — every kind of page inside the book.
+  Each page uses the same paper frame (Page); long content scrolls within the page.
 */
 import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,16 +15,17 @@ import Disclaimer from '../ui/Disclaimer';
 import { CornerFlourish, Divider, FernSprig, MushroomSketch } from '../ui/Ornaments';
 import { Eyebrow, type } from '../ui/Typography';
 import { usePhotoUri } from '../../data/hooks';
-import { RARITY } from '../../data/gamification';
+import { rarityLabel } from '../../data/gamification';
 import { formatDate, weatherLabel } from '../../data/fieldNotes';
-import { displayName } from '../../services/safety';
+import { commonNameOf, displayName } from '../../services/safety';
+import { localized, t, upper } from '../../i18n';
 import { colors, fonts, shadows } from '../../theme';
 
-/** Ortak sayfa çerçevesi: kenar boşluğu çizgisi, kayan içerik, altta sayfa numarası */
+/** Shared page frame: margin line, scrolling content, page number at the bottom */
 function Page({ number, center = false, corner = false, children }) {
   return (
     <View style={styles.page}>
-      {/* sol kenarda ince kahverengi kenar boşluğu çizgisi: eski defter hissi */}
+      {/* thin brown margin line on the left: the feel of an old notebook */}
       <View style={styles.margin} pointerEvents="none" />
       {corner && <CornerFlourish size={40} rotate={90} color={colors.moss} style={styles.corner} />}
       <ScrollView
@@ -36,7 +37,7 @@ function Page({ number, center = false, corner = false, children }) {
         {children}
       </ScrollView>
       {number != null && (
-        <Text style={styles.number} accessibilityLabel={`Sayfa ${number}`}>
+        <Text style={styles.number} accessibilityLabel={t('book.pageLabel', { number })}>
           ~ {number} ~
         </Text>
       )}
@@ -44,14 +45,14 @@ function Page({ number, center = false, corner = false, children }) {
   );
 }
 
-/** Kimliğe göre her seferinde aynı küçük eğimi verir (polaroidler hep aynı açıda dursun) */
+/** Gives the same small tilt for the same id every time (so polaroids keep their angle) */
 function tiltFor(id = '') {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0;
   return Number(((Math.abs(h) % 50) / 10 - 2.5).toFixed(1)); // -2.5° … +2.5°
 }
 
-/** İçindekiler'deki noktalı çizgi */
+/** The dotted leader line in the contents */
 function Leader() {
   return (
     <View style={styles.leader}>
@@ -62,7 +63,7 @@ function Leader() {
   );
 }
 
-// ---------------------------------------------------------------- KAPAK
+// ---------------------------------------------------------------- COVER
 
 export function CoverPage({ speciesCount, onOpen }) {
   const pulse = useSharedValue(0);
@@ -73,17 +74,17 @@ export function CoverPage({ speciesCount, onOpen }) {
 
   return (
     <View style={styles.cover}>
-      <Pressable style={{ flex: 1 }} onPress={onOpen} accessibilityRole="button" accessibilityLabel="Kitabı aç">
+      <Pressable style={{ flex: 1 }} onPress={onOpen} accessibilityRole="button" accessibilityLabel={t('book.openBook')}>
         <BookCover speciesCount={speciesCount} fill />
       </Pressable>
       <Animated.Text style={[styles.coverHint, hintStyle]} pointerEvents="none">
-        Açmak için dokun ya da sola kaydır
+        {t('book.coverHint')}
       </Animated.Text>
     </View>
   );
 }
 
-// ---------------------------------------------------------------- İÇİNDEKİLER
+// ---------------------------------------------------------------- CONTENTS
 
 function TocRow({ no, name, latin, page, onPress, extra = false }) {
   return (
@@ -102,13 +103,13 @@ function TocRow({ no, name, latin, page, onPress, extra = false }) {
 export function TocPage({ number, entries, draftCount, draftsPage, mysteryCount, mysteryPage, showMystery, onToggleMystery, onJump }) {
   return (
     <Page number={number} corner>
-      <Text style={styles.pageTitle}>İçindekiler</Text>
+      <Text style={styles.pageTitle}>{t('book.toc')}</Text>
       <Divider />
 
       {entries.length === 0 ? (
         <View style={styles.tocEmpty}>
           <MushroomSketch size={64} color={colors.moss} />
-          <Text style={[type.muted, type.center]}>Sayfalar henüz boş. İlk mantarını taradığında buraya yazılacak.</Text>
+          <Text style={[type.muted, type.center]}>{t('book.tocEmpty')}</Text>
         </View>
       ) : (
         <View>
@@ -120,9 +121,9 @@ export function TocPage({ number, entries, draftCount, draftsPage, mysteryCount,
 
       {(draftCount > 0 || (showMystery && mysteryCount > 0)) && <Divider />}
       <View>
-        {draftCount > 0 && <TocRow extra name={`Taslaklar (${draftCount})`} page={draftsPage} onPress={() => onJump(draftsPage)} />}
+        {draftCount > 0 && <TocRow extra name={t('book.tocDrafts', { count: draftCount })} page={draftsPage} onPress={() => onJump(draftsPage)} />}
         {showMystery && mysteryCount > 0 && (
-          <TocRow extra name={`Keşfedilmeyi bekleyenler (${mysteryCount})`} page={mysteryPage} onPress={() => onJump(mysteryPage)} />
+          <TocRow extra name={t('book.tocMysteries', { count: mysteryCount })} page={mysteryPage} onPress={() => onJump(mysteryPage)} />
         )}
       </View>
 
@@ -135,19 +136,19 @@ export function TocPage({ number, entries, draftCount, draftsPage, mysteryCount,
         <View style={[styles.checkbox, showMystery && styles.checkboxOn]}>
           {showMystery && <Icon name="check" size={14} strokeWidth={2.4} color={colors.cream} />}
         </View>
-        <Text style={[type.small, { flex: 1 }]}>Henüz bulunmamış türleri silik "?" sayfaları olarak göster</Text>
+        <Text style={[type.small, { flex: 1 }]}>{t('book.showMysteries')}</Text>
       </Pressable>
     </Page>
   );
 }
 
-// ---------------------------------------------------------------- TÜR SAYFASI
+// ---------------------------------------------------------------- SPECIES PAGE
 
 function DescriptionRow({ label, text }) {
   if (!text) return null;
   return (
     <View style={styles.descRow}>
-      <Text style={styles.descLabel}>{label.toLocaleUpperCase('tr-TR')}</Text>
+      <Text style={styles.descLabel}>{upper(label)}</Text>
       <Text style={styles.descText}>{text}</Text>
     </View>
   );
@@ -156,7 +157,7 @@ function DescriptionRow({ label, text }) {
 function Thumb({ photoId, onPress, isCover }) {
   const uri = usePhotoUri(photoId, 'thumb');
   return (
-    <Pressable onPress={onPress} style={[styles.thumb, isCover && styles.thumbCover]} accessibilityRole="imagebutton" accessibilityLabel="Fotoğrafı büyüt">
+    <Pressable onPress={onPress} style={[styles.thumb, isCover && styles.thumbCover]} accessibilityRole="imagebutton" accessibilityLabel={t('book.enlargePhoto')}>
       {!!uri && <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />}
     </Pressable>
   );
@@ -167,8 +168,8 @@ function NoteEntry({ sighting, onEdit }) {
   const facts = [
     weatherLabel(n.weather),
     n.location?.placeName,
-    n.location?.lat != null && !n.location?.placeName ? 'Konum kayıtlı' : '',
-    n.companions && `Yanımda: ${n.companions}`,
+    n.location?.lat != null && !n.location?.placeName ? t('book.locationSaved') : '',
+    n.companions && t('book.companions', { names: n.companions }),
   ].filter(Boolean);
 
   return (
@@ -176,11 +177,11 @@ function NoteEntry({ sighting, onEdit }) {
       <View style={styles.noteHead}>
         <Text style={styles.noteDate}>{formatDate(sighting.foundAt)}</Text>
         <Pressable onPress={onEdit} hitSlop={10} accessibilityRole="button">
-          <Text style={styles.noteEdit}>Düzenle</Text>
+          <Text style={styles.noteEdit}>{t('book.edit')}</Text>
         </Pressable>
       </View>
       {facts.length > 0 && <Text style={type.small}>{facts.join(' · ')}</Text>}
-      {n.note ? <Text style={styles.noteText}>“{n.note}”</Text> : facts.length === 0 && <Text style={styles.noteEmpty}>Not eklenmemiş.</Text>}
+      {n.note ? <Text style={styles.noteText}>“{n.note}”</Text> : facts.length === 0 && <Text style={styles.noteEmpty}>{t('book.noNote')}</Text>}
     </View>
   );
 }
@@ -195,25 +196,25 @@ export function SpeciesPage({ number, no, species, sightings, onOpenPhoto, onEdi
       <View style={styles.speciesHead}>
         <Eyebrow>{`No. ${no}`}</Eyebrow>
         <Text style={styles.speciesName}>{displayName(species)}</Text>
-        {!!species.turkishName && <Text style={styles.speciesLatin}>{species.latinName}</Text>}
+        {!!commonNameOf(species) && <Text style={styles.speciesLatin}>{species.latinName}</Text>}
         <View style={styles.chipRow}>
-          <Chip label={RARITY[species.rarity]?.label} />
-          <Chip variant="quiet" icon="eye" label={`${species.seenCount} kez görüldü`} />
+          <Chip label={rarityLabel(species.rarity)} />
+          <Chip variant="quiet" icon="eye" label={t('book.seenTimes', { count: species.seenCount })} />
         </View>
       </View>
 
-      <Pressable onPress={() => onOpenPhoto(species.coverPhotoId)} style={styles.polaroidBtn} accessibilityRole="imagebutton" accessibilityLabel="Fotoğrafı büyüt">
+      <Pressable onPress={() => onOpenPhoto(species.coverPhotoId)} style={styles.polaroidBtn} accessibilityRole="imagebutton" accessibilityLabel={t('book.enlargePhoto')}>
         <Polaroid uri={coverUri} caption={formatDate(species.firstFoundAt)} tilt={tiltFor(species.id)} width={230} />
       </Pressable>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tanım</Text>
+        <Text style={styles.sectionTitle}>{t('book.description')}</Text>
         <View style={{ gap: 8 }}>
-          <DescriptionRow label="Şapka" text={d.capShape} />
-          <DescriptionRow label="Renk" text={d.color} />
-          <DescriptionRow label="Sap" text={d.stem} />
-          <DescriptionRow label="Ortam" text={d.habitat} />
-          <DescriptionRow label="Mevsim" text={d.season} />
+          <DescriptionRow label={t('book.cap')} text={d.capShape} />
+          <DescriptionRow label={t('book.color')} text={d.color} />
+          <DescriptionRow label={t('book.stem')} text={d.stem} />
+          <DescriptionRow label={t('book.habitat')} text={d.habitat} />
+          <DescriptionRow label={t('book.season')} text={d.season} />
         </View>
       </View>
 
@@ -221,18 +222,18 @@ export function SpeciesPage({ number, no, species, sightings, onOpenPhoto, onEdi
         <View style={styles.fact}>
           <View style={styles.factTitleRow}>
             <Icon name="sparkle" size={16} color={colors.mustard} />
-            <Text style={styles.factTitle}>Biliyor muydun?</Text>
+            <Text style={styles.factTitle}>{t('book.funFact')}</Text>
           </View>
           <Text style={styles.factText}>{species.funFact}</Text>
         </View>
       )}
 
-      <Text style={styles.aiNote}>Tanım ve bilgi yapay zekâ tarafından yazıldı; hatalı olabilir.</Text>
+      <Text style={styles.aiNote}>{t('book.aiNote')}</Text>
 
       <Divider />
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Saha notları</Text>
+        <Text style={styles.sectionTitle}>{t('book.fieldNotes')}</Text>
         <View style={{ gap: 12 }}>
           {newestFirst.map((s) => (
             <NoteEntry key={s.id} sighting={s} onEdit={() => onEditSighting(s)} />
@@ -242,7 +243,7 @@ export function SpeciesPage({ number, no, species, sightings, onOpenPhoto, onEdi
 
       {sightings.length > 1 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fotoğraflar ({sightings.length})</Text>
+          <Text style={styles.sectionTitle}>{t('book.photos', { count: sightings.length })}</Text>
           <View style={styles.gallery}>
             {sightings.map((s) => (
               <Thumb key={s.id} photoId={s.photoId} isCover={s.photoId === species.coverPhotoId} onPress={() => onOpenPhoto(s.photoId)} />
@@ -254,24 +255,24 @@ export function SpeciesPage({ number, no, species, sightings, onOpenPhoto, onEdi
   );
 }
 
-// ---------------------------------------------------------------- "?" SAYFASI
+// ---------------------------------------------------------------- "?" PAGE
 
 export function MysteryPage({ number, entry, first }) {
   return (
     <Page number={number} center>
-      {first && <Text style={styles.mysterySection}>Keşfedilmeyi bekleyenler</Text>}
+      {first && <Text style={styles.mysterySection}>{t('book.mysterySection')}</Text>}
       <View style={styles.mysteryBody}>
         <Text style={styles.mysteryMark}>?</Text>
         <MushroomSketch size={84} color={colors.inkFaint} style={styles.mysterySketch} />
-        <Eyebrow>Henüz keşfedilmedi</Eyebrow>
-        <Text style={styles.mysteryHint}>{entry.hint}</Text>
-        <Chip variant="quiet" label={entry.season} style={{ alignSelf: 'center' }} />
+        <Eyebrow>{t('book.mysteryEyebrow')}</Eyebrow>
+        <Text style={styles.mysteryHint}>{localized(entry.hint)}</Text>
+        <Chip variant="quiet" label={localized(entry.season)} style={{ alignSelf: 'center' }} />
       </View>
     </Page>
   );
 }
 
-// ---------------------------------------------------------------- TASLAKLAR
+// ---------------------------------------------------------------- DRAFTS
 
 function DraftItem({ sighting, onOpen }) {
   const uri = usePhotoUri(sighting.photoId, 'thumb');
@@ -281,8 +282,8 @@ function DraftItem({ sighting, onOpen }) {
       <Polaroid uri={uri} width={92} tilt={tiltFor(sighting.id)} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={styles.draftDate}>{formatDate(sighting.foundAt)}</Text>
-        <Text style={type.small}>{guess ? `Belki: ${displayName(guess)}` : 'Tür önerisi yok'}</Text>
-        <Text style={styles.draftCta}>Türünü seç →</Text>
+        <Text style={type.small}>{guess ? t('book.draftGuess', { name: displayName(guess) }) : t('book.draftNoGuess')}</Text>
+        <Text style={styles.draftCta}>{t('book.draftCta')}</Text>
       </View>
     </Pressable>
   );
@@ -291,8 +292,8 @@ function DraftItem({ sighting, onOpen }) {
 export function DraftsPage({ number, drafts, onOpenDraft }) {
   return (
     <Page number={number}>
-      <Text style={styles.pageTitle}>Taslaklar</Text>
-      <Text style={[type.small, type.center]}>Emin olamadığın buluşlar. Türünü seçince kendi sayfasına taşınır.</Text>
+      <Text style={styles.pageTitle}>{t('book.drafts')}</Text>
+      <Text style={[type.small, type.center]}>{t('book.draftsText')}</Text>
       <Divider />
       <View style={{ gap: 14 }}>
         {drafts.map((s) => (
@@ -303,18 +304,16 @@ export function DraftsPage({ number, drafts, onOpenDraft }) {
   );
 }
 
-// ---------------------------------------------------------------- SON SAYFA
+// ---------------------------------------------------------------- FINAL PAGE
 
 export function EndPage({ number, speciesCount }) {
   return (
     <Page number={number} center>
       <View style={styles.endBody}>
         <FernSprig size={110} color={colors.moss} style={{ opacity: 0.7 }} />
-        <Text style={styles.pageTitle}>Defterin devam ediyor…</Text>
+        <Text style={styles.pageTitle}>{t('book.endTitle')}</Text>
         <Text style={[type.muted, type.center]}>
-          {speciesCount === 0
-            ? 'İlk yürüyüşün bu sayfaları dolduracak.'
-            : `${speciesCount} tür kaydettin. Her yeni keşif bu kitaba bir sayfa daha ekleyecek.`}
+          {speciesCount === 0 ? t('book.endEmpty') : t('book.endCount', { count: speciesCount })}
         </Text>
         <Disclaimer />
       </View>
@@ -323,7 +322,7 @@ export function EndPage({ number, speciesCount }) {
 }
 
 const styles = StyleSheet.create({
-  // ortak
+  // shared
   page: { flex: 1 },
   margin: { position: 'absolute', left: 18, top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(123, 86, 52, 0.18)' },
   corner: { position: 'absolute', top: 8, right: 8, opacity: 0.45, zIndex: 1 },
@@ -332,7 +331,7 @@ const styles = StyleSheet.create({
   number: { paddingTop: 6, paddingBottom: 10, textAlign: 'center', fontFamily: fonts.serifItalic, fontSize: 15, color: colors.inkFaint },
   pageTitle: { fontFamily: fonts.serif, fontSize: 29, lineHeight: 34, color: colors.forest, textAlign: 'center' },
 
-  // kapak
+  // cover
   cover: { flex: 1, backgroundColor: colors.forest },
   coverHint: {
     position: 'absolute',
@@ -345,7 +344,7 @@ const styles = StyleSheet.create({
     color: colors.mustardSoft,
   },
 
-  // içindekiler
+  // contents
   tocEmpty: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   tocRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingVertical: 8 },
   tocNo: { fontFamily: fonts.serifMedium, fontSize: 16, color: colors.earth, minWidth: 22, paddingBottom: 2 },
@@ -368,7 +367,7 @@ const styles = StyleSheet.create({
   },
   checkboxOn: { backgroundColor: colors.forest },
 
-  // tür sayfası
+  // species page
   speciesHead: { gap: 2, paddingRight: 34 },
   speciesName: { fontFamily: fonts.serif, fontSize: 32, lineHeight: 36, color: colors.forest },
   speciesLatin: { fontFamily: fonts.serifItalic, fontSize: 18.5, color: colors.inkSoft },
@@ -402,7 +401,7 @@ const styles = StyleSheet.create({
   thumb: { width: 72, height: 72, padding: 4, backgroundColor: colors.paperWhite, overflow: 'hidden', ...shadows.paper },
   thumbCover: { borderWidth: 2, borderColor: colors.mustard },
 
-  // "?" sayfası
+  // "?" page
   mysterySection: {
     position: 'absolute',
     top: 22,
@@ -418,11 +417,11 @@ const styles = StyleSheet.create({
   mysterySketch: { opacity: 0.6, marginTop: -40 },
   mysteryHint: { fontFamily: fonts.serifItalic, fontSize: 19, lineHeight: 25, color: colors.inkSoft, textAlign: 'center', maxWidth: 280 },
 
-  // taslaklar
+  // drafts
   draft: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 6, paddingHorizontal: 4 },
   draftDate: { fontFamily: fonts.serif, fontSize: 18, color: colors.forest },
   draftCta: { fontFamily: fonts.sansHeavy, fontSize: 13.5, color: colors.earth, marginTop: 4 },
 
-  // son sayfa
+  // final page
   endBody: { alignItems: 'center', gap: 14 },
 });

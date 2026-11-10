@@ -1,13 +1,14 @@
 /*
-  TARİH ALANI (telefon) — Tarihi okunur biçimde gösterir, dokununca telefonun kendi
-  tarih seçicisini açar. Gelecek tarih seçilemez.
-  Android: açılır takvim penceresi. iPhone: alanın altında takvim açılır.
+  DATE FIELD (phone) — shows the date in a readable format and opens the phone's own
+  date picker when tapped. Future dates can't be chosen.
+  Android: a pop-up calendar dialog. iPhone: an inline calendar below the field.
 */
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Icon from '../ui/Icon';
 import { formatDate } from '../../data/fieldNotes';
+import { localeTag, t } from '../../i18n';
 import { colors, fonts, radius } from '../../theme';
 
 export default function DateField({ value, onChange }) {
@@ -31,7 +32,7 @@ export default function DateField({ value, onChange }) {
 
   return (
     <View>
-      <Pressable onPress={open} style={styles.input} accessibilityRole="button" accessibilityLabel={`Tarih: ${formatDate(value)}. Değiştir`}>
+      <Pressable onPress={open} style={styles.input} accessibilityRole="button" accessibilityLabel={t('notes.dateLabel', { date: formatDate(value) })}>
         <Text style={styles.value}>{formatDate(value)}</Text>
         <Icon name="clock" size={18} color={colors.moss} />
       </Pressable>
@@ -41,7 +42,7 @@ export default function DateField({ value, onChange }) {
           mode="date"
           display="inline"
           maximumDate={new Date()}
-          locale="tr-TR"
+          locale={localeTag}
           accentColor={colors.forest}
           themeVariant="light"
           onChange={(event, picked) => {

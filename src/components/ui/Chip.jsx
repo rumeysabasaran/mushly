@@ -1,6 +1,6 @@
 /*
-  ÇİP — Küçük etiket: nadirlik, puan, mevsim gibi.
-  variant: default (hardal) | quiet (çerçeveli) | points (yeşil)
+  CHIP — a small label for things like rarity, points or season.
+  variant: default (mustard) | quiet (outlined) | points (green)
 */
 import { StyleSheet, Text, View } from 'react-native';
 import Icon from './Icon';

@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Mushly",
+    "NSCameraUsageDescription": "Mushly uses the camera to photograph mushrooms you find in the forest.",
+    "NSPhotoLibraryUsageDescription": "Mushly reads your photo library so you can add a mushroom photo to your journal.",
+    "NSLocationWhenInUseUsageDescription": "Mushly adds the place of a find to your field notes, only when you ask it to."
+  }
+}

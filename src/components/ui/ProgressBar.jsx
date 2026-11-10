@@ -1,6 +1,6 @@
 /*
-  İLERLEME ÇUBUĞU — Seviye ilerlemesi ve güven yüzdesi için.
-  Değer değişince yumuşakça dolar.
+  PROGRESS BAR — for level progress and confidence percentages.
+  Fills smoothly when the value changes.
 */
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';

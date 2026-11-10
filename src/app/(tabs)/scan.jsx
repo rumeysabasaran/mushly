@@ -1,12 +1,12 @@
 /*
-  TARA EKRANI — Fotoğraf çek / yükle → tanı → seç → kaydet.
+  SCAN — take / choose a photo → identify → pick → save.
 
-  Adımlar (step):
-    pick       Fotoğraf seçme butonları
-    analyzing  Fotoğraf hazırlanıyor ve tanınıyor
-    result     Tanıma sonucu geldi → IdentifyFlow devralır
-    offline    İnternet yok → fotoğraf bekleyenlere eklendi
-    error      Bir sorun çıktı → tekrar dene / bekleyenlere ekle / vazgeç
+  Steps (step):
+    pick       Photo source buttons
+    analyzing  The photo is being prepared and identified
+    result     A recognition result arrived → IdentifyFlow takes over
+    offline    No internet → the photo was added to pending
+    error      Something went wrong → retry / add to pending / cancel
 */
 import { useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
@@ -29,6 +29,7 @@ import { tables } from '../../data/db';
 import { identify, OfflineError } from '../../services/recognizer';
 import { savePhoto, deletePhoto } from '../../services/collection';
 import { addPending } from '../../services/pendingQueue';
+import { errorMessage, t } from '../../i18n';
 import { colors, fonts } from '../../theme';
 
 const PICKER_OPTIONS = { mediaTypes: ['images'], quality: 0.9, exif: false };
@@ -51,7 +52,7 @@ export default function ScanScreen() {
         await addPending(photoId, 'offline');
         setState({ step: 'offline', photoId });
       } else {
-        setState({ step: 'error', photoId, message: err.message, code: err.code });
+        setState({ step: 'error', photoId, code: err.code || 'generic' });
       }
     }
   }
@@ -63,7 +64,7 @@ export default function ScanScreen() {
           ? await ImagePicker.requestCameraPermissionsAsync()
           : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        setState({ step: 'error', code: 'permission', source, message: source === 'camera' ? 'Kamera izni verilmedi.' : 'Galeri izni verilmedi.' });
+        setState({ step: 'error', code: 'permission', message: source === 'camera' ? t('scan.cameraDenied') : t('scan.galleryDenied') });
         return;
       }
 
@@ -74,15 +75,15 @@ export default function ScanScreen() {
       if (res.canceled || !res.assets?.length) return;
 
       setState({ step: 'analyzing' });
-      const photoId = await savePhoto(res.assets[0]); // önce cihaza kaydet: internet giderse kaybolmasın
+      const photoId = await savePhoto(res.assets[0]); // store on the device first, so it isn't lost if the connection drops
       await runIdentify(photoId);
     } catch (err) {
-      console.warn('[tara]', err);
-      setState({ step: 'error', message: err.message || 'Fotoğraf açılamadı.' });
+      console.warn('[scan]', err);
+      setState({ step: 'error', code: err.code || 'photo-open' });
     }
   }
 
-  /** Kaydetmeden vazgeç: fotoğrafı da sil */
+  /** Cancel without saving: delete the photo too */
   async function cancel() {
     await deletePhoto(state.photoId);
     setState({ step: 'pick' });
@@ -100,29 +101,26 @@ export default function ScanScreen() {
 
   return (
     <Screen ref={scrollRef} keyboard>
-      <PageHeader
-        eyebrow="Yeni keşif"
-        title="Mantar tara"
-        subtitle={state.step === 'pick' ? 'Mantarı yakından, şapkası ve sapı görünecek şekilde çek.' : undefined}
-      />
+      <PageHeader eyebrow={t('scan.eyebrow')} title={t('scan.title')} subtitle={state.step === 'pick' ? t('scan.subtitle') : undefined} />
 
       {state.step === 'pick' && (
         <Animated.View entering={FadeIn.duration(250)} style={styles.stack}>
           <Paper dashed style={styles.frame}>
             <Icon name="mushroom" size={54} strokeWidth={1.2} color={colors.moss} />
-            <Text style={[type.muted, type.center]}>Şapkanın altı da görünürse tanıma daha isabetli olur.</Text>
+            <Text style={[type.muted, type.center]}>{t('scan.frameHint')}</Text>
           </Paper>
 
           <View style={styles.actions}>
-            <Button block icon="camera" title="Fotoğraf çek" onPress={() => pick('camera')} />
-            <Button block variant="ghost" icon="gallery" title="Galeriden yükle" onPress={() => pick('library')} />
+            <Button block icon="camera" title={t('scan.takePhoto')} onPress={() => pick('camera')} />
+            <Button block variant="ghost" icon="gallery" title={t('scan.fromGallery')} onPress={() => pick('library')} />
           </View>
 
           {pendingCount > 0 && (
-            <Paper style={styles.pendingLink} onPress={() => router.push('/bekleyenler')}>
+            <Paper style={styles.pendingLink} onPress={() => router.push('/pending')}>
               <Icon name="clock" color={colors.earth} />
               <Text style={[type.body, { flex: 1 }]}>
-                <Text style={{ fontFamily: fonts.sansHeavy }}>{pendingCount} fotoğraf</Text> tanınmayı bekliyor
+                <Text style={{ fontFamily: fonts.sansHeavy }}>{t('scan.pendingCount', { count: pendingCount })}</Text>
+                {t('scan.pendingSuffix')}
               </Text>
               <Text style={type.body}>→</Text>
             </Paper>
@@ -137,7 +135,7 @@ export default function ScanScreen() {
           <Appear from={POLAROID_IN}>
             <Polaroid uri={photoUri} width={240} />
           </Appear>
-          <Text style={styles.analyzingText}>Defterin sayfaları karıştırılıyor…</Text>
+          <Text style={styles.analyzingText}>{t('scan.analyzing')}</Text>
           <AnalyzingDots />
         </View>
       )}
@@ -149,13 +147,11 @@ export default function ScanScreen() {
       {state.step === 'offline' && (
         <Paper style={styles.message}>
           <Polaroid uri={photoUri} width={150} tilt={2} />
-          <Text style={[type.h3, type.center, { marginTop: 8 }]}>Fotoğraf bekleyenlere eklendi</Text>
-          <Text style={[type.muted, type.center]}>
-            Bağlantı gelince otomatik olarak tanınacak. Sonra Bekleyenler'den türü seçebilirsin.
-          </Text>
+          <Text style={[type.h3, type.center, { marginTop: 8 }]}>{t('scan.offlineTitle')}</Text>
+          <Text style={[type.muted, type.center]}>{t('scan.offlineText')}</Text>
           <View style={[styles.actions, styles.wide]}>
-            <Button block icon="camera" title="Yeni tarama" onPress={restart} />
-            <Button block variant="ghost" icon="clock" title="Bekleyenler" onPress={() => router.push('/bekleyenler')} />
+            <Button block icon="camera" title={t('scan.newScan')} onPress={restart} />
+            <Button block variant="ghost" icon="clock" title={t('scan.pendingButton')} onPress={() => router.push('/pending')} />
           </View>
         </Paper>
       )}
@@ -163,16 +159,16 @@ export default function ScanScreen() {
       {state.step === 'error' && (
         <Paper style={styles.message}>
           <Icon name="info" size={36} color={colors.earth} />
-          <Text style={[type.h3, type.center]}>{state.code === 'permission' ? 'İzin gerekiyor' : 'Tanıma yapılamadı'}</Text>
-          <Text style={[type.muted, type.center]}>{state.message}</Text>
-          {state.code === 'no-key' && <Text style={[type.small, type.center]}>README'deki "API anahtarı" bölümüne bak.</Text>}
+          <Text style={[type.h3, type.center]}>{state.code === 'permission' ? t('scan.permissionTitle') : t('scan.errorTitle')}</Text>
+          <Text style={[type.muted, type.center]}>{state.message ?? errorMessage(state.code)}</Text>
+          {state.code === 'no-key' && <Text style={[type.small, type.center]}>{t('scan.noKeyHint')}</Text>}
           <View style={[styles.actions, styles.wide]}>
             {state.code === 'permission' && (
-              <Button block title="Telefon ayarlarını aç" onPress={() => Linking.openSettings().catch(() => {})} />
+              <Button block title={t('scan.openSettings')} onPress={() => Linking.openSettings().catch(() => {})} />
             )}
-            {!!state.photoId && <Button block title="Tekrar dene" onPress={() => runIdentify(state.photoId)} />}
-            {!!state.photoId && <Button block variant="ghost" title="Bekleyenlere ekle, sonra dene" onPress={moveToPending} />}
-            <Button variant="text" title={state.photoId ? 'Vazgeç' : 'Geri dön'} onPress={state.photoId ? cancel : restart} />
+            {!!state.photoId && <Button block title={t('common.retry')} onPress={() => runIdentify(state.photoId)} />}
+            {!!state.photoId && <Button block variant="ghost" title={t('scan.addToPending')} onPress={moveToPending} />}
+            <Button variant="text" title={state.photoId ? t('common.cancel') : t('scan.goBack')} onPress={state.photoId ? cancel : restart} />
           </View>
         </Paper>
       )}

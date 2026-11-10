@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Mushly",
+    "NSCameraUsageDescription": "Ormanda gördüğün mantarın fotoğrafını çekmek için kamerayı kullanır.",
+    "NSPhotoLibraryUsageDescription": "Galerindeki bir mantar fotoğrafını deftere eklemek için.",
+    "NSLocationWhenInUseUsageDescription": "Buluşun yerini saha notuna eklemek için, sadece sen istediğinde."
+  }
+}

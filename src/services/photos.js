@@ -1,16 +1,16 @@
 /*
-  FOTOĞRAFLAR (telefon) — küçültme, kaydetme, silme.
+  PHOTOS (phone) — resizing, storing, deleting.
 
-  Telefon kameraları çok büyük fotoğraflar çeker (3–8 MB). Hem cihazda yer kaplamasın
-  hem de tanıma servisine hızlı gitsin diye iki boyut kaydediyoruz:
-  - full:  en uzun kenar 1280 px → tanıma ve kitap sayfası için
-  - thumb: en uzun kenar 360 px  → listelerdeki küçük önizlemeler için
+  Phone cameras take very large photos (3–8 MB). To save space on the device and
+  send them to the recognition service quickly, two sizes are stored:
+  - full:  longest side 1280 px → for recognition and the book page
+  - thumb: longest side 360 px  → for small previews in lists
 
-  Dosyalar uygulamanın kendi klasöründe (Documents/photos) durur. Veritabanına sadece
-  dosya ADI yazılır, tam yolu değil: iPhone'da uygulama güncellenince klasörün yolu
-  değişebiliyor, ad ise değişmez.
+  Files live in the app's own folder (Documents/photos). Only the file NAME is stored
+  in the database, never the full path: on iPhone the folder path can change when the
+  app updates, but the name does not.
 
-  Not: Web önizlemesi için aynı işleri yapan photos.web.js dosyası var.
+  Note: photos.web.js does the same jobs for the web preview.
 */
 import { File, Directory, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -24,7 +24,7 @@ function photosDir() {
   return dir;
 }
 
-/** En uzun kenarı maxSide olacak şekilde küçültür (zaten küçükse dokunmaz) */
+/** Shrinks the image so its longest side is maxSide (leaves smaller images alone) */
 async function resized(uri, width, height, maxSide, compress) {
   const context = ImageManipulator.manipulate(uri);
   if (width && height && Math.max(width, height) > maxSide) {
@@ -37,10 +37,10 @@ async function resized(uri, width, height, maxSide, compress) {
 }
 
 /**
- * Kameradan / galeriden gelen fotoğrafı iki boyutta kaydeder.
- * @param {{uri:string, width?:number, height?:number}} asset  expo-image-picker sonucu
- * @param {string} id  fotoğraf kaydının kimliği (dosya adında kullanılır)
- * @returns {{ full: string, thumb: string }} dosya adları
+ * Stores a camera / gallery photo in two sizes.
+ * @param {{uri:string, width?:number, height?:number}} asset  an expo-image-picker result
+ * @param {string} id  the photo record's id (used in the file names)
+ * @returns {{ full: string, thumb: string }} file names
  */
 export async function storePhotoFiles(asset, id) {
   try {
@@ -54,26 +54,26 @@ export async function storePhotoFiles(asset, id) {
     await new File(thumbTemp).move(new File(dir, thumb), { overwrite: true });
     return { full, thumb };
   } catch (err) {
-    console.warn('[photos] kaydedilemedi', err);
-    throw new Error('Fotoğraf hazırlanamadı. Başka bir fotoğraf dener misin?');
+    console.warn('[photos] could not store', err);
+    throw Object.assign(new Error('The photo could not be prepared.'), { code: 'photo-prepare' });
   }
 }
 
-/** Fotoğraf kaydından ekranda gösterilebilir adres. variant: 'full' | 'thumb' */
+/** A displayable URI for a photo record. variant: 'full' | 'thumb' */
 export function photoUri(photo, variant = 'thumb') {
   const name = photo?.[variant];
   if (!name) return null;
   return new File(Paths.document, 'photos', name).uri;
 }
 
-/** Tanıma servisine göndermek için büyük fotoğrafın base64 metni */
+/** The large photo as base64, for sending to the recognition service */
 export async function photoBase64(photo) {
   const file = new File(Paths.document, 'photos', photo.full);
-  if (!file.exists) throw new Error('Fotoğraf dosyası bulunamadı.');
+  if (!file.exists) throw Object.assign(new Error('The photo file was not found.'), { code: 'photo-missing' });
   return file.base64();
 }
 
-/** Fotoğrafın dosyalarını siler (yoksa sessizce geçer) */
+/** Deletes a photo's files (silently skips missing ones) */
 export function deletePhotoFiles(photo) {
   for (const variant of ['full', 'thumb']) {
     if (!photo?.[variant]) continue;
@@ -81,7 +81,7 @@ export function deletePhotoFiles(photo) {
       const file = new File(Paths.document, 'photos', photo[variant]);
       if (file.exists) file.delete();
     } catch (err) {
-      console.warn('[photos] silinemedi', err);
+      console.warn('[photos] could not delete', err);
     }
   }
 }

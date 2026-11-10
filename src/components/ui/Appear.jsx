@@ -1,12 +1,12 @@
 /*
-  BELİRME ANİMASYONU — Bir parça ekrana ilk geldiğinde yumuşakça yerine oturur.
-  "from" başlangıç halini verir; bitişte her şey doğal haline (0 / 1) döner.
+  APPEAR ANIMATION — an element settles softly into place when it first appears.
+  "from" sets the starting state; at the end everything returns to its natural state (0 / 1).
 
   <Appear from={{ opacity: 0, translateY: 12, rotate: -6, scale: 0.96 }} duration={420}>
     ...
   </Appear>
 
-  overshoot: true ise hedefi biraz geçip geri gelir (kitaba giren sayfa gibi).
+  overshoot: when true, it goes slightly past the target and comes back (like a page entering the book).
 */
 import { useEffect } from 'react';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
@@ -46,5 +46,5 @@ export default function Appear({ from = {}, duration = 420, delay = 0, overshoot
   return <Animated.View style={[style, animated]}>{children}</Animated.View>;
 }
 
-/** Fotoğraf hafifçe dönerek sayfaya "yapıştırılır" */
+/** A photo is "stuck" onto the page with a slight turn */
 export const POLAROID_IN = { opacity: 0, translateY: 12, rotate: -6, scale: 0.96 };

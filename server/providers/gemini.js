@@ -1,46 +1,46 @@
 /*
-  GOOGLE GEMINI — Ücretsiz yedek tanıma servisi
-  Evren ücretli olursa, kotası dolarsa ya da yanıt vermezse otomatik devreye girer.
+  GOOGLE GEMINI — free fallback recognition service
+  Kicks in automatically if Evren becomes paid, runs out of quota or doesn't reply.
 
-  Gerekli ayar (.env):  GEMINI_API_KEY=...   (https://aistudio.google.com/apikey)
-  İsteğe bağlı ayar:    GEMINI_MODEL=gemini-3.5-flash-lite   (ya da daha güçlü ama yoğun: gemini-3.8-flash)
+  Required (.env):  GEMINI_API_KEY=...   (https://aistudio.google.com/apikey)
+  Optional:         GEMINI_MODEL=gemini-3.5-flash-lite   (or the stronger but busier gemini-3.8-flash)
 
-  Not: Google'ın ücretsiz katmanında gönderilen içerik Google ürünlerini geliştirmek
-  için kullanılabilir. Sadece fotoğraf gönderilir; konum ve saha notları gönderilmez.
+  Note: on Google's free tier, submitted content may be used to improve Google's
+  products. Only the photo is sent; location and field notes never are.
 
-  Google'ın güncel önerdiği "Interactions" adresi kullanılıyor.
+  Uses Google's currently recommended "Interactions" endpoint.
 */
-import { SYSTEM_PROMPT, JSON_INSTRUCTION, USER_TEXT, RESULT_SCHEMA, IdentifyError, parseJsonReply } from '../prompt.js';
+import { IdentifyError, parseJsonReply } from '../prompt.js';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
-// Denemelerde gemini-3.8-flash ücretsiz katmanda sık sık "çok yoğun" (503) hatası verdi;
-// flash-lite hızlı (~3-4 sn) ve türleri doğru buldu.
+// In testing, gemini-3.8-flash often returned "overloaded" (503) on the free tier;
+// flash-lite was fast (~3-4 s) and identified species correctly.
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const TIMEOUT_MS = 60_000;
 
-export async function askGemini({ image, mediaType, apiKey, model = DEFAULT_GEMINI_MODEL }) {
+export async function askGemini({ image, mediaType, prompt, schema, apiKey, model = DEFAULT_GEMINI_MODEL }) {
   const request = {
     model,
-    system_instruction: SYSTEM_PROMPT + JSON_INSTRUCTION,
+    system_instruction: prompt.jsonSystem,
     input: [
-      { type: 'text', text: USER_TEXT },
+      { type: 'text', text: prompt.user },
       { type: 'image', data: image, mime_type: mediaType },
     ],
-    // Yanıtın bizim kalıbımıza uymasını iste
-    response_format: { type: 'text', mime_type: 'application/json', schema: RESULT_SCHEMA },
+    // Ask for a reply that matches our schema
+    response_format: { type: 'text', mime_type: 'application/json', schema },
     generation_config: {
-      thinking_level: 'low', // az düşün: daha hızlı ve kotayı daha az harcar
+      thinking_level: 'low', // think less: faster and lighter on the quota
       max_output_tokens: 4096,
     },
-    store: false, // Google sunucusunda konuşma kaydı tutulmasın
+    store: false, // don't keep a conversation record on Google's servers
   };
 
   let data;
   try {
     data = await send(request, apiKey);
   } catch (err) {
-    // Kalıp bu model için fazla karmaşık bulunursa, kalıpsız bir kez daha dene
-    // (yönergedeki JSON açıklaması yine de doğru biçimi ister).
+    // If the schema is too complex for this model, retry once without it
+    // (the JSON instruction in the prompt still asks for the right format).
     if (err instanceof IdentifyError && err.code === 'bad-request') {
       const { response_format, ...withoutSchema } = request;
       data = await send(withoutSchema, apiKey);
@@ -50,13 +50,13 @@ export async function askGemini({ image, mediaType, apiKey, model = DEFAULT_GEMI
   }
 
   if (data.status === 'incomplete') {
-    throw new IdentifyError('incomplete', 'Tanıma yanıtı yarım kaldı. Lütfen tekrar dene.');
+    throw new IdentifyError('incomplete', 'The reply was cut off (incomplete).');
   }
   if (data.status && data.status !== 'completed') {
-    throw new IdentifyError('api-error', `Tanıma servisi tamamlanamadı (${data.status}).`);
+    throw new IdentifyError('api-error', `Gemini did not complete (${data.status}).`);
   }
 
-  // Yanıt metni "steps" içindeki model çıktısındadır
+  // The reply text sits in the model output inside "steps"
   const text =
     (data.steps ?? [])
       .filter((step) => step.type === 'model_output')
@@ -80,16 +80,16 @@ async function send(body, apiKey) {
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      // Expo geliştirme sunucusu kendi fetch'ini kullanır ve yanıt 30 sn içinde başlamazsa
-      // bağlantıyı keser. Model düşünürken veri göndermediği için bu süreyi uzatıyoruz.
-      // (Standart fetch bu ayarı tanımaz ve görmezden gelir.)
+      // The Expo dev server uses its own fetch, which drops the connection if the reply
+      // hasn't started within 30 s. The model sends nothing while it thinks, so we extend
+      // that limit. (Standard fetch doesn't know this option and ignores it.)
       connectTimeout: TIMEOUT_MS + 5_000,
     });
   } catch (err) {
     if (err.name === 'TimeoutError') {
-      throw new IdentifyError('timeout', 'Tanıma çok uzun sürdü. Lütfen tekrar dene.', 504);
+      throw new IdentifyError('timeout', 'Gemini took too long to reply.', 504);
     }
-    throw new IdentifyError('unreachable', 'Tanıma servisine ulaşılamadı.', 503);
+    throw new IdentifyError('unreachable', 'Could not reach the Gemini API.', 503);
   }
 
   const data = await response.json().catch(() => ({}));
@@ -97,23 +97,23 @@ async function send(body, apiKey) {
   return data;
 }
 
-/** Google'ın hata kodlarını kullanıcıya anlaşılır Türkçe mesaja çevirir. */
+/** Maps Google's error responses to our error codes. */
 function geminiError(status, data) {
-  // Google hata yanıtını bazen bir liste içinde gönderiyor: [{ error: {...} }]
+  // Google sometimes wraps the error in a list: [{ error: {...} }]
   const err = (Array.isArray(data) ? data[0] : data)?.error ?? {};
   const text = `${err.status ?? ''} ${err.code ?? ''} ${err.message ?? ''}`;
   console.error('[identify:gemini]', status, text.slice(0, 300));
 
   if (/API_KEY|api key|apikey|UNAUTHENTICATED/i.test(text) || status === 401) {
-    return new IdentifyError('bad-key', 'Gemini API anahtarı geçersiz. .env dosyasını kontrol et.', 500);
+    return new IdentifyError('bad-key', 'Invalid Gemini API key.', 500);
   }
   if (status === 429) {
-    return new IdentifyError('rate-limit', 'Gemini günlük ücretsiz kotası doldu. Yarın tekrar dene.', 429);
+    return new IdentifyError('rate-limit', 'Gemini free-tier quota reached.', 429);
   }
   if (status === 503) {
-    return new IdentifyError('busy', 'Gemini şu an çok yoğun. Biraz sonra tekrar dene.', 503);
+    return new IdentifyError('busy', 'Gemini is overloaded.', 503);
   }
-  if (status === 403) return new IdentifyError('no-permission', 'Gemini anahtarının bu modele erişimi yok.', 500);
-  if (status === 400) return new IdentifyError('bad-request', 'Gemini isteği kabul etmedi.', 502);
-  return new IdentifyError('api-error', `Gemini hata verdi (${status}).`, 502);
+  if (status === 403) return new IdentifyError('no-permission', 'The Gemini key has no access to this model.', 500);
+  if (status === 400) return new IdentifyError('bad-request', 'Gemini rejected the request.', 502);
+  return new IdentifyError('api-error', `Gemini API error (${status}).`, 502);
 }

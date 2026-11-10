@@ -1,19 +1,17 @@
 /*
-  NAZİK NOT — Uygulamanın her yerinde aynı metin kullanılsın diye tek yerde tutulur.
-  Bu metni değiştirme; projenin kesin kuralının bir parçası.
+  GENTLE NOTE — kept in one place so the same text is used everywhere in the app.
+  Don't change this text (app.disclaimer in the i18n files); it is part of the project's core rule.
 */
 import { StyleSheet, Text, View } from 'react-native';
 import Icon from './Icon';
+import { t } from '../../i18n';
 import { colors, fonts, radius } from '../../theme';
-
-export const DISCLAIMER_TEXT =
-  'Mantar Defteri bir keşif defteridir, tüketim rehberi değildir. Fotoğrafla tür tespiti kesin değildir.';
 
 export default function Disclaimer({ compact = false, style }) {
   return (
     <View style={[styles.box, compact && styles.compact, style]} accessibilityRole="text">
       <Icon name="info" size={compact ? 16 : 18} color={colors.earth} style={styles.icon} />
-      <Text style={[styles.text, compact && styles.textCompact]}>{DISCLAIMER_TEXT}</Text>
+      <Text style={[styles.text, compact && styles.textCompact]}>{t('app.disclaimer')}</Text>
     </View>
   );
 }

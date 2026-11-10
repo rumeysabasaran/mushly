@@ -1,8 +1,8 @@
 /*
-  ALT MENÜ — Başparmakla ulaşılabilecek yerde 4 sekme ve ortada kamera butonu.
-  Kamera butonu her ekranda görünür; dokununca Tara ekranına gider.
-  Bekleyen fotoğraf varsa kamera butonunun köşesinde sayısı görünür.
-  Klavye açıkken menü gizlenir (yazı alanını kapatmasın).
+  TAB BAR — 4 tabs within thumb's reach and a camera button in the middle.
+  The camera button is visible on every screen and opens the Scan screen.
+  If photos are pending, their count shows on the corner of the camera button.
+  The bar hides while the keyboard is open (so it doesn't cover the text field).
 */
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,22 +12,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../ui/Icon';
 import { PaperTexture } from '../ui/Paper';
 import { useStats } from '../../data/hooks';
+import { t } from '../../i18n';
 import { colors, fonts, layout, shadows } from '../../theme';
 
 const TABS_LEFT = [
-  { href: '/', label: 'Ana Sayfa', icon: 'home' },
-  { href: '/kitap', label: 'Kitap', icon: 'book' },
+  { href: '/', label: 'tabs.home', icon: 'home' },
+  { href: '/book', label: 'tabs.book', icon: 'book' },
 ];
 const TABS_RIGHT = [
-  { href: '/geziler', label: 'Geziler', icon: 'trail' },
-  { href: '/profil', label: 'Profil', icon: 'user' },
+  { href: '/trips', label: 'tabs.trips', icon: 'trail' },
+  { href: '/profile', label: 'tabs.profile', icon: 'user' },
 ];
 
 function isActive(pathname, href) {
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Tab({ href, label, icon, active }) {
+function Tab({ href, label: labelKey, icon, active }) {
+  const label = t(labelKey);
   const color = active ? colors.forest : colors.inkFaint;
   return (
     <Pressable
@@ -61,7 +63,7 @@ export default function TabBar() {
   const insets = useSafeAreaInsets();
   const { pendingCount } = useStats();
   const keyboardVisible = useKeyboardVisible();
-  const scanActive = isActive(pathname, '/tara');
+  const scanActive = isActive(pathname, '/scan');
 
   if (keyboardVisible) return null;
 
@@ -77,15 +79,15 @@ export default function TabBar() {
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              router.navigate('/tara');
+              router.navigate('/scan');
             }}
             style={({ pressed }) => [styles.fab, (pressed || scanActive) && styles.fabPressed, pressed && styles.fabScale]}
             accessibilityRole="button"
-            accessibilityLabel="Mantar tara"
+            accessibilityLabel={t('tabs.scan')}
           >
             <Icon name="camera" size={28} strokeWidth={1.7} color={colors.cream} />
             {pendingCount > 0 && (
-              <View style={styles.badge} accessibilityLabel={`${pendingCount} bekleyen fotoğraf`}>
+              <View style={styles.badge} accessibilityLabel={t('tabs.pendingBadge', { count: pendingCount })}>
                 <Text style={styles.badgeText}>{pendingCount}</Text>
               </View>
             )}

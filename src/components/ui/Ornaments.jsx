@@ -1,14 +1,14 @@
 /*
-  SÜSLEMELER — Eski doğa defterlerindeki ince el çizimi motifler (web sürümüyle aynı çizimler).
-  Renkleri `color` ile verilir.
+  ORNAMENTS — fine hand-drawn motifs from old nature notebooks (the same drawings as the web version).
+  Colors are set with `color`.
 */
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '../../theme';
 
 /**
- * Eğrelti otu dalı. Yapraklar bir eğri boyunca kodla yerleştirilir,
- * böylece her biri hafif farklı boyda, el çizimi gibi durur.
+ * A fern sprig. The leaflets are placed along a curve in code,
+ * so each has a slightly different size and looks hand-drawn.
  */
 const FERN_LEAVES = (() => {
   const p0 = [10, 86];
@@ -29,7 +29,7 @@ const FERN_LEAVES = (() => {
     const t = i / 10.5;
     const [x, y] = point(t);
     const [tx, ty] = tangent(t);
-    const len = 15 * (1 - t * 0.7); // uca doğru küçülür
+    const len = 15 * (1 - t * 0.7); // gets smaller towards the tip
     [-1, 1].forEach((side) => {
       const nx = -ty * side + tx * 0.55;
       const ny = tx * side + ty * 0.55;
@@ -56,7 +56,7 @@ export function FernSprig({ size = 90, color = colors.moss, flip = false, style 
   );
 }
 
-/** Küçük bir mantar eskizi: boş ekranlarda ve kapakta kullanılır */
+/** A small mushroom sketch, used on empty screens and the cover */
 export function MushroomSketch({ size = 72, color = colors.moss, style }) {
   return (
     <Svg
@@ -70,23 +70,23 @@ export function MushroomSketch({ size = 72, color = colors.moss, style }) {
       strokeLinejoin="round"
       style={style}
     >
-      {/* şapka */}
+      {/* cap */}
       <Path d="M9.5 33.5C11 17.5 53 17 54.5 33.5c-8.8 3.4-36 3.6-45 0z" />
-      {/* şapka altı lameller */}
+      {/* gills under the cap */}
       <Path d="M17 35.5l1.5 2M24 36.4l1 2M40 36.4l-1 2M47 35.5l-1.5 2" strokeWidth={1} />
-      {/* sap */}
+      {/* stem */}
       <Path d="M26.5 36.6c-.4 7.5-1.6 13-3.6 17.6h18.2c-2-4.6-3.2-10.1-3.6-17.6" />
-      {/* halka */}
+      {/* ring */}
       <Path d="M26 42.5c3.6 1.6 8.4 1.6 12 0" strokeWidth={1.1} />
-      {/* benekler */}
+      {/* spots */}
       <Path d="M22 27.5c1.4-.6 2.6.2 2.2 1.4M33 23.8c1.6-.4 2.6.6 2 1.8M43 28.2c1.2-.4 2 .4 1.6 1.3" strokeWidth={1.1} />
-      {/* çimen */}
+      {/* grass */}
       <Path d="M12 56c2.5-.6 5-.4 7 .2M44 56c3-.7 6-.5 8.5.3M18 56l-1.5-4M48 56l1.2-3.6" strokeWidth={1.1} />
     </Svg>
   );
 }
 
-/** Köşe süslemesi: kıvrık bir sarmaşık */
+/** Corner ornament: a curling vine */
 export function CornerFlourish({ size = 46, color = colors.moss, rotate = 0, style }) {
   return (
     <View style={[{ width: size, height: size, transform: [{ rotate: `${rotate}deg` }] }, style]} pointerEvents="none">
@@ -101,7 +101,7 @@ export function CornerFlourish({ size = 46, color = colors.moss, rotate = 0, sty
   );
 }
 
-/** Bölüm ayırıcı: ince çizgi, ortada küçük bir yaprak */
+/** Section divider: a thin line with a small leaf in the middle */
 export function Divider({ color = colors.moss, opacity = 0.65, style }) {
   return (
     <View style={[{ height: 14, opacity }, style]} pointerEvents="none">

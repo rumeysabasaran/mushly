@@ -1,5 +1,5 @@
 /*
-  ZEMİN — Ekranların arkasındaki krem kâğıt ve gren dokusu.
+  BACKDROP — the cream paper and grain texture behind every screen.
 */
 import { StyleSheet, View } from 'react-native';
 import { PaperTexture } from '../ui/Paper';

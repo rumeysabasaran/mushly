@@ -1,6 +1,6 @@
 /*
-  GEZİLER EKRANI — Gezi başlatma/bitirme ve geçmiş gezilerin özeti.
-  Kayıt mantığı 5. aşamada eklenecek; şimdilik görünüm hazır.
+  TRIPS — start/end a trip and a summary of past trips.
+  The recording logic arrives in stage 5; for now the layout is ready.
 */
 import { StyleSheet, Text, View } from 'react-native';
 import Screen from '../../components/ui/Screen';
@@ -9,25 +9,26 @@ import Paper from '../../components/ui/Paper';
 import Button from '../../components/ui/Button';
 import { FernSprig } from '../../components/ui/Ornaments';
 import { type } from '../../components/ui/Typography';
+import { t } from '../../i18n';
 import { colors } from '../../theme';
 
 export default function TripsScreen() {
   return (
     <Screen>
-      <PageHeader eyebrow="Saha günlüğü" title="Geziler" subtitle="Her yürüyüş; tarihi, yeri ve bulduğun türlerle bir hatıraya dönüşür." />
+      <PageHeader eyebrow={t('trips.eyebrow')} title={t('trips.title')} subtitle={t('trips.subtitle')} />
 
       <Paper style={styles.start}>
-        <Text style={type.h3}>Yeni gezi</Text>
-        <Text style={type.muted}>Başlattığında, bitirene kadar taradığın her mantar bu geziye yazılır.</Text>
-        <Button block icon="trail" title="Gezi başlat" disabled />
-        <Text style={[type.small, type.center, { color: colors.inkFaint }]}>5. aşamada etkinleşecek</Text>
+        <Text style={type.h3}>{t('trips.newTrip')}</Text>
+        <Text style={type.muted}>{t('trips.newTripText')}</Text>
+        <Button block icon="trail" title={t('trips.start')} disabled />
+        <Text style={[type.small, type.center, { color: colors.inkFaint }]}>{t('trips.comingSoon')}</Text>
       </Paper>
 
       <View style={styles.list}>
-        <Text style={type.h2}>Geçmiş geziler</Text>
+        <Text style={type.h2}>{t('trips.past')}</Text>
         <Paper style={styles.empty}>
           <FernSprig size={70} color={colors.moss} />
-          <Text style={[type.muted, type.center]}>Henüz bir gezi yok. İlk yürüyüşünden sonra burada görünecek.</Text>
+          <Text style={[type.muted, type.center]}>{t('trips.empty')}</Text>
         </Paper>
       </View>
     </Screen>

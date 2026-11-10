@@ -1,8 +1,8 @@
 /*
-  SAHA NOTU FORMU — Kitabı "senin" yapan kısım. Hepsi isteğe bağlı.
-  Tarih, yer, hava, kimlerle olduğun ve serbest not.
+  FIELD NOTES FORM — the part that makes the book "yours". Everything is optional.
+  Date, place, weather, who you were with, and a free-form note.
 
-  initial: düzenleme için mevcut buluş ({ foundAt, notes }). Yoksa boş form açılır.
+  initial: an existing find to edit ({ foundAt, notes }). Without it, the form opens empty.
 */
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -12,14 +12,15 @@ import Button from '../ui/Button';
 import Icon from '../ui/Icon';
 import DateField from './DateField';
 import { type } from '../ui/Typography';
-import { WEATHER } from '../../data/fieldNotes';
+import { WEATHER_KEYS, weatherLabel } from '../../data/fieldNotes';
+import { t } from '../../i18n';
 import { colors, fonts, radius } from '../../theme';
 
-/** Seçilen günü korur; bugün seçildiyse şimdiki saati kullanır */
+/** Keeps the chosen day; uses the current time if today was chosen */
 function normalizeDay(time, original) {
   const picked = new Date(time);
   const sameDay = (a, b) => a.toDateString() === b.toDateString();
-  if (original && sameDay(picked, new Date(original))) return original; // gün değişmediyse saati koru
+  if (original && sameDay(picked, new Date(original))) return original; // the day didn't change, so keep the time
   if (sameDay(picked, new Date())) return Date.now();
   picked.setHours(12, 0, 0, 0);
   return picked.getTime();
@@ -29,7 +30,7 @@ function Label({ children }) {
   return <Text style={styles.label}>{children}</Text>;
 }
 
-export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel = 'Deftere kaydet', busy = false, bare = false }) {
+export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel = t('identify.submitSave'), busy = false, bare = false }) {
   const n = initial?.notes ?? {};
   const initialCoords = n.location?.lat != null ? { lat: n.location.lat, lng: n.location.lng, accuracy: n.location.accuracy } : null;
 
@@ -57,7 +58,7 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
       });
       setGeoState('idle');
     } catch (err) {
-      console.warn('[konum]', err);
+      console.warn('[location]', err);
       setGeoState('error');
     }
   }
@@ -80,21 +81,21 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
     <Wrapper style={styles.form}>
       {!initial && (
         <View>
-          <Text style={type.h3}>Saha notu</Text>
-          <Text style={[type.small, { marginTop: 2 }]}>Hepsi isteğe bağlı. Sonra kitaptan da düzenleyebilirsin.</Text>
+          <Text style={type.h3}>{t('notes.title')}</Text>
+          <Text style={[type.small, { marginTop: 2 }]}>{t('notes.subtitle')}</Text>
         </View>
       )}
 
       <View style={styles.field}>
-        <Label>Tarih</Label>
+        <Label>{t('notes.date')}</Label>
         <DateField value={foundAt} onChange={(t) => setFoundAt(normalizeDay(t, initial?.foundAt))} />
       </View>
 
       <View style={styles.field}>
-        <Label>Yer</Label>
+        <Label>{t('notes.place')}</Label>
         <TextInput
           style={styles.input}
-          placeholder="ör. Belgrad Ormanı, göl kıyısı"
+          placeholder={t('notes.placePlaceholder')}
           placeholderTextColor={colors.inkFaint}
           value={placeName}
           onChangeText={setPlaceName}
@@ -103,27 +104,31 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
         <Pressable onPress={addLocation} disabled={geoState === 'loading'} style={styles.linkBtn} accessibilityRole="button">
           <Icon name="pin" size={16} color={colors.forest} />
           <Text style={styles.linkText}>
-            {coords ? `Konum eklendi (±${coords.accuracy} m)` : geoState === 'loading' ? 'Konum alınıyor…' : 'Konumumu ekle'}
+            {coords
+              ? t('notes.locationAdded', { accuracy: coords.accuracy })
+              : geoState === 'loading'
+                ? t('notes.locating')
+                : t('notes.addLocation')}
           </Text>
         </Pressable>
-        {geoState === 'denied' && <Text style={styles.error}>Konum izni verilmedi. Telefon ayarlarından izin verebilirsin.</Text>}
-        {geoState === 'error' && <Text style={styles.error}>Konum alınamadı. Konum servisi açık mı?</Text>}
+        {geoState === 'denied' && <Text style={styles.error}>{t('notes.locationDenied')}</Text>}
+        {geoState === 'error' && <Text style={styles.error}>{t('notes.locationError')}</Text>}
       </View>
 
       <View style={styles.field}>
-        <Label>Hava</Label>
-        <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Hava durumu">
-          {WEATHER.map((w) => {
-            const on = weather === w.key;
+        <Label>{t('notes.weather')}</Label>
+        <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel={t('notes.weatherLabel')}>
+          {WEATHER_KEYS.map((key) => {
+            const on = weather === key;
             return (
               <Pressable
-                key={w.key}
-                onPress={() => setWeather(on ? '' : w.key)}
+                key={key}
+                onPress={() => setWeather(on ? '' : key)}
                 style={[styles.pick, on && styles.pickOn]}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
               >
-                <Text style={[styles.pickText, on && styles.pickTextOn]}>{w.label}</Text>
+                <Text style={[styles.pickText, on && styles.pickTextOn]}>{weatherLabel(key)}</Text>
               </Pressable>
             );
           })}
@@ -131,10 +136,10 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
       </View>
 
       <View style={styles.field}>
-        <Label>Kimlerle?</Label>
+        <Label>{t('notes.companions')}</Label>
         <TextInput
           style={styles.input}
-          placeholder="ör. Ayşe ve köpeğimiz Pamuk"
+          placeholder={t('notes.companionsPlaceholder')}
           placeholderTextColor={colors.inkFaint}
           value={companions}
           onChangeText={setCompanions}
@@ -143,10 +148,10 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
       </View>
 
       <View style={styles.field}>
-        <Label>Not</Label>
+        <Label>{t('notes.note')}</Label>
         <TextInput
           style={[styles.input, styles.textarea]}
-          placeholder="Nerede, nasıl gördün? Aklında kalan küçük bir ayrıntı…"
+          placeholder={t('notes.notePlaceholder')}
           placeholderTextColor={colors.inkFaint}
           value={note}
           onChangeText={setNote}
@@ -156,8 +161,8 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
       </View>
 
       <View style={styles.actions}>
-        <Button block title={busy ? 'Kaydediliyor…' : submitLabel} onPress={submit} disabled={busy} />
-        {onBack && <Button variant="text" title="← Seçime dön" onPress={onBack} disabled={busy} />}
+        <Button block title={busy ? t('common.saving') : submitLabel} onPress={submit} disabled={busy} />
+        {onBack && <Button variant="text" title={t('notes.backToChoice')} onPress={onBack} disabled={busy} />}
       </View>
     </Wrapper>
   );

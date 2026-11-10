@@ -1,10 +1,10 @@
 /*
-  BEKLEYENLER KUYRUĞU
-  İnternet yokken çekilen fotoğraflar buraya düşer. Bağlantı gelince (veya uygulama
-  açılınca / öne gelince) sırayla tanınır ve "hazır" olarak işaretlenir.
-  Kullanıcı sonra Bekleyenler ekranından türü seçip deftere kaydeder.
+  PENDING QUEUE
+  Photos taken without internet land here. When the connection returns (or the app
+  is opened / brought to the foreground) they are identified one by one and marked
+  "ready". The user then picks the species from the Pending screen and saves it.
 
-  Durumlar: waiting (bekliyor) → processing (tanınıyor) → ready (hazır) | error (hata)
+  Statuses: waiting → processing → ready | error
 */
 import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
@@ -16,13 +16,13 @@ const { pending: Pending, photos: Photos } = tables;
 let running = false;
 
 export async function addPending(photoId, reason = 'offline') {
-  const item = withMeta({ photoId, status: 'waiting', reason, result: null, errorMessage: '' });
+  const item = withMeta({ photoId, status: 'waiting', reason, result: null, errorCode: '' });
   await Pending.put(item);
-  processPending(); // bağlantı varsa hemen dene
+  processPending(); // try right away if there is a connection
   return item.id;
 }
 
-/** Bekleyen her fotoğrafı sırayla tanımaya çalışır. Aynı anda tek kez çalışır. */
+/** Tries to identify every waiting photo in turn. Only one run at a time. */
 export async function processPending() {
   if (running) return;
   running = true;
@@ -34,20 +34,20 @@ export async function processPending() {
 
       const photo = await Photos.get(item.photoId);
       if (!photo) {
-        await Pending.delete(item.id); // fotoğraf silinmiş
+        await Pending.delete(item.id); // the photo was deleted
         continue;
       }
 
       await Pending.update(item.id, { status: 'processing', updatedAt: Date.now() });
       try {
         const result = await identify(photo);
-        await Pending.update(item.id, { status: 'ready', result, errorMessage: '', updatedAt: Date.now() });
+        await Pending.update(item.id, { status: 'ready', result, errorCode: '', updatedAt: Date.now() });
       } catch (err) {
         if (err instanceof OfflineError) {
           await Pending.update(item.id, { status: 'waiting', updatedAt: Date.now() });
-          break; // bağlantı yine gitti; kalanları sonra dene
+          break; // the connection dropped again; try the rest later
         }
-        await Pending.update(item.id, { status: 'error', errorMessage: err.message, updatedAt: Date.now() });
+        await Pending.update(item.id, { status: 'error', errorCode: err.code || 'generic', updatedAt: Date.now() });
       }
     }
   } catch (err) {
@@ -57,22 +57,22 @@ export async function processPending() {
   }
 }
 
-/** Hatalı bir kaydı tekrar sıraya koyar. */
+/** Puts a failed item back in the queue. */
 export async function retryPending(id) {
-  await Pending.update(id, { status: 'waiting', errorMessage: '', updatedAt: Date.now() });
+  await Pending.update(id, { status: 'waiting', errorCode: '', errorMessage: '', updatedAt: Date.now() });
   return processPending();
 }
 
-/** Bekleyen kaydı siler. keepPhoto: fotoğraf deftere kaydedildiyse silme. */
+/** Deletes a pending item. keepPhoto: don't delete the photo if it was saved to the journal. */
 export async function removePending(id, { keepPhoto = false } = {}) {
   const item = await Pending.get(id);
   await Pending.delete(id);
   if (item && !keepPhoto) await deletePhoto(item.photoId);
 }
 
-/** Uygulama açılınca bir kez çağrılır: yarım kalanları düzeltir, bağlantıyı dinler. */
+/** Called once on app start: fixes interrupted items and listens for the connection. */
 export async function startPendingWatcher() {
-  // Uygulama "tanınıyor" sırasında kapandıysa bunları tekrar sıraya al
+  // If the app closed while "processing", put those items back in the queue
   const stuck = (await Pending.all()).filter((p) => p.status === 'processing');
   for (const p of stuck) await Pending.update(p.id, { status: 'waiting' });
 

@@ -1,17 +1,18 @@
 /*
-  YAZI STİLLERİ — Başlıklar serif (Cormorant Garamond), metinler Nunito.
-  Her ekran aynı ölçüleri kullansın diye tek yerde.
-  Kullanım: <Text style={type.h2}>Başlık</Text>
+  TYPOGRAPHY — headings in serif (Cormorant Garamond), body text in Nunito.
+  Kept in one place so every screen uses the same sizes.
+  Usage: <Text style={type.h2}>Heading</Text>
 */
 import { StyleSheet, Text } from 'react-native';
+import { upper } from '../../i18n';
 import { colors, fonts } from '../../theme';
 
 /**
- * Küçük büyük harfli etiket ("YENİ KEŞİF").
- * Büyük harfe Türkçe kurallarla çevrilir (i → İ); telefonun dil ayarına güvenilmez.
+ * A small uppercase label ("NEW DISCOVERY").
+ * Uppercased with the current language's rules (Turkish: i → İ); textTransform can't be trusted for this.
  */
 export function Eyebrow({ children, style }) {
-  const text = typeof children === 'string' ? children.toLocaleUpperCase('tr-TR') : children;
+  const text = upper(children);
   return <Text style={[type.eyebrow, style]}>{text}</Text>;
 }
 

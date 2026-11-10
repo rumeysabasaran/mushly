@@ -1,19 +1,20 @@
 /*
-  ADAY LİSTESİ — Tanımanın önerdiği en olası 3 tür, güven yüzdesiyle.
-  Kullanıcı birine dokunarak seçer.
+  CANDIDATE LIST — the 3 most likely species suggested by recognition, with confidence.
+  The user taps one to choose it.
 */
 import { StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Paper from '../ui/Paper';
 import Chip from '../ui/Chip';
 import ProgressBar from '../ui/ProgressBar';
-import { RARITY } from '../../data/gamification';
-import { displayName } from '../../services/safety';
+import { rarityLabel } from '../../data/gamification';
+import { commonNameOf, displayName } from '../../services/safety';
+import { t } from '../../i18n';
 import { colors, fonts, shadows } from '../../theme';
 
 export default function CandidateList({ candidates, selectedIndex, onSelect }) {
   return (
-    <View style={styles.list} accessibilityRole="radiogroup" accessibilityLabel="Olası türler">
+    <View style={styles.list} accessibilityRole="radiogroup" accessibilityLabel={t('identify.candidatesLabel')}>
       {candidates.map((c, i) => {
         const selected = i === selectedIndex;
         return (
@@ -26,18 +27,18 @@ export default function CandidateList({ candidates, selectedIndex, onSelect }) {
             }}
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
-            accessibilityLabel={`${displayName(c)}, yüzde ${c.confidence}`}
+            accessibilityLabel={t('identify.candidateLabel', { name: displayName(c), confidence: c.confidence })}
             style={[styles.card, selected && styles.selected]}
           >
             <View style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot} />}</View>
             <View style={styles.body}>
               <Text style={styles.name}>{displayName(c)}</Text>
-              {!!c.turkishName && <Text style={styles.latin}>{c.latinName}</Text>}
+              {!!commonNameOf(c) && <Text style={styles.latin}>{c.latinName}</Text>}
               {!!c.habitat && <Text style={styles.hint}>{c.habitat}</Text>}
               <View style={styles.meta}>
                 <ProgressBar value={c.confidence / 100} height={6} color={colors.moss} style={{ flex: 1 }} />
-                <Text style={styles.pct}>%{c.confidence}</Text>
-                <Chip small label={RARITY[c.rarity]?.label} />
+                <Text style={styles.pct}>{t('identify.percent', { value: c.confidence })}</Text>
+                <Chip small label={rarityLabel(c.rarity)} />
               </View>
             </View>
           </Paper>

@@ -1,10 +1,10 @@
 /*
-  TANIMA AKIŞI — Bir fotoğraf ve tanıma sonucu elimizdeyken:
-  1. Adaylar  → kullanıcı türü seçer ya da "emin değilim" der
-  2. Saha notu → isteğe bağlı bilgiler
-  3. Kutlama  → yeni sayfa / tekrar / taslak
+  IDENTIFY FLOW — once we have a photo and a recognition result:
+  1. Candidates  → the user picks a species or says "I'm not sure"
+  2. Field notes → optional details
+  3. Celebration → new page / repeat / draft
 
-  Hem Tara ekranında hem Bekleyenler ekranında aynı bileşen kullanılır.
+  Used by both the Scan screen and the Pending screen.
 */
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -21,6 +21,7 @@ import { type } from '../ui/Typography';
 import { usePhotoUri } from '../../data/hooks';
 import { recordSighting } from '../../services/collection';
 import { displayName } from '../../services/safety';
+import { t } from '../../i18n';
 import { colors, fonts, radius } from '../../theme';
 
 export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAgain, againLabel, onStepChange }) {
@@ -36,7 +37,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
 
   const setStep = (s) => {
     setStepState(s);
-    onStepChange?.(s); // ekran en üste kaydırılsın diye
+    onStepChange?.(s); // so the screen can scroll back to the top
   };
 
   async function save({ foundAt, notes }) {
@@ -50,7 +51,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
       setStep('done');
     } catch (err) {
       console.error(err);
-      setError('Kaydedilemedi. Lütfen tekrar dene.');
+      setError(t('identify.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -67,7 +68,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
       <Appear from={POLAROID_IN} style={styles.photo}>
         <Polaroid
           uri={photoUri}
-          caption={step === 'notes' ? (chosen ? displayName(chosen) : 'Taslak') : undefined}
+          caption={step === 'notes' ? (chosen ? displayName(chosen) : t('common.draft')) : undefined}
           width={step === 'notes' ? 170 : 240}
         />
       </Appear>
@@ -75,7 +76,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
       {result.mock && (
         <View style={styles.mock}>
           <Icon name="info" size={16} color={colors.earth} style={{ marginTop: 2 }} />
-          <Text style={styles.mockText}>Deneme modu: Bu sonuçlar sahte. Gerçek tanıma için API anahtarını ekle.</Text>
+          <Text style={styles.mockText}>{t('identify.mockNotice')}</Text>
         </View>
       )}
 
@@ -84,8 +85,8 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
           {hasCandidates ? (
             <>
               <View style={{ gap: 4 }}>
-                <Text style={type.h2}>Bu hangisi olabilir?</Text>
-                <Text style={type.muted}>Fotoğraftan tür tespiti kesin değildir. En yakın görüneni seç.</Text>
+                <Text style={type.h2}>{t('identify.question')}</Text>
+                <Text style={type.muted}>{t('identify.uncertain')}</Text>
               </View>
               <CandidateList
                 candidates={result.candidates}
@@ -99,7 +100,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
           ) : (
             <Paper style={styles.empty}>
               <Icon name="mushroom" size={40} color={colors.moss} />
-              <Text style={[type.muted, type.center]}>Bu fotoğrafta bir mantar seçemedim.</Text>
+              <Text style={[type.muted, type.center]}>{t('identify.noMushroom')}</Text>
               {!!result.photoTip && <Text style={[type.small, type.center]}>{result.photoTip}</Text>}
             </Paper>
           )}
@@ -108,18 +109,18 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
 
           <View style={styles.actions}>
             {hasCandidates && (
-              <Button block title="Bu tür, devam et" disabled={asDraft || selected === null} onPress={() => setStep('notes')} />
+              <Button block title={t('identify.confirm')} disabled={asDraft || selected === null} onPress={() => setStep('notes')} />
             )}
             <Button
               block
               variant="ghost"
-              title="Emin değilim, taslak kaydet"
+              title={t('identify.saveAsDraft')}
               onPress={() => {
                 setAsDraft(true);
                 setStep('notes');
               }}
             />
-            <Button variant="text" title="Vazgeç" onPress={onCancel} />
+            <Button variant="text" title={t('common.cancel')} onPress={onCancel} />
           </View>
         </Animated.View>
       )}
@@ -130,7 +131,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
             onSubmit={save}
             onBack={() => setStep('choose')}
             busy={busy}
-            submitLabel={asDraft ? 'Taslak olarak kaydet' : 'Deftere kaydet'}
+            submitLabel={asDraft ? t('identify.submitDraft') : t('identify.submitSave')}
           />
           {!!error && <Text style={styles.error}>{error}</Text>}
         </Animated.View>

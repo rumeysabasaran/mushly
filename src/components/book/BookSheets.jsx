@@ -1,8 +1,8 @@
 /*
-  KİTAP PENCERELERİ
-  - PhotoSheet:   fotoğrafı büyütür, istenirse kapak fotoğrafı yapar
-  - EditSheet:    bir buluşun saha notlarını düzenler ya da buluşu siler
-  - DraftSheet:   taslağın türünü sonradan seçer (puan ve kutlama ile)
+  BOOK SHEETS
+  - PhotoSheet:   enlarges a photo and can make it the page's cover photo
+  - EditSheet:    edits a find's field notes, or deletes the find
+  - DraftSheet:   picks a draft's species later (with points and a celebration)
 */
 import { useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -17,19 +17,20 @@ import { confirmAsync } from '../ui/confirm';
 import { type } from '../ui/Typography';
 import { usePhotoUri } from '../../data/hooks';
 import { deleteSighting, resolveDraft, setCoverPhoto, updateSighting } from '../../services/collection';
+import { t } from '../../i18n';
 import { colors } from '../../theme';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-// ---------------------------------------------------------------- FOTOĞRAF
+// ---------------------------------------------------------------- PHOTO
 
 export function PhotoSheet({ photoId, species, onClose }) {
   const uri = usePhotoUri(photoId, 'full');
   const isCover = species?.coverPhotoId === photoId;
-  const [ratio, setRatio] = useState(1); // genişlik / yükseklik: çerçeve fotoğrafa göre şekillenir
+  const [ratio, setRatio] = useState(1); // width / height: the frame follows the photo's shape
 
   return (
-    <Sheet title="Fotoğraf" onClose={onClose} variant="photo">
+    <Sheet title={t('sheets.photo')} onClose={onClose} variant="photo">
       {({ close }) => (
         <>
           <View style={[styles.photoFrame, { aspectRatio: ratio, maxHeight: SCREEN_H * 0.7 }]}>
@@ -47,7 +48,7 @@ export function PhotoSheet({ photoId, species, onClose }) {
             <Button
               variant="ghost"
               icon="book"
-              title="Sayfanın fotoğrafı yap"
+              title={t('sheets.makeCover')}
               style={styles.photoBtn}
               onPress={async () => {
                 await setCoverPhoto(species.id, photoId);
@@ -61,19 +62,19 @@ export function PhotoSheet({ photoId, species, onClose }) {
   );
 }
 
-// ---------------------------------------------------------------- NOT DÜZENLEME
+// ---------------------------------------------------------------- EDIT NOTES
 
 export function EditSheet({ sighting, onClose }) {
   const [busy, setBusy] = useState(false);
 
   return (
-    <Sheet title="Saha notunu düzenle" onClose={onClose}>
+    <Sheet title={t('sheets.editTitle')} onClose={onClose}>
       {({ close }) => (
         <>
           <FieldNotesForm
             bare
             initial={sighting}
-            submitLabel="Kaydet"
+            submitLabel={t('common.save')}
             busy={busy}
             onSubmit={async ({ foundAt, notes }) => {
               setBusy(true);
@@ -84,10 +85,10 @@ export function EditSheet({ sighting, onClose }) {
           <Button
             variant="text"
             color={colors.earth}
-            title="Bu buluşu sil"
+            title={t('sheets.deleteSighting')}
             disabled={busy}
             onPress={async () => {
-              const ok = await confirmAsync('Buluş silinsin mi?', 'Bu buluş, fotoğrafı ve puanıyla birlikte silinecek. Bu geri alınamaz.');
+              const ok = await confirmAsync(t('sheets.deleteSightingTitle'), t('sheets.deleteSightingText'));
               if (!ok) return;
               setBusy(true);
               await deleteSighting(sighting.id);
@@ -100,7 +101,7 @@ export function EditSheet({ sighting, onClose }) {
   );
 }
 
-// ---------------------------------------------------------------- TASLAK
+// ---------------------------------------------------------------- DRAFT
 
 export function DraftSheet({ sighting, onClose }) {
   const uri = usePhotoUri(sighting.photoId, 'full');
@@ -119,29 +120,29 @@ export function DraftSheet({ sighting, onClose }) {
   }
 
   return (
-    <Sheet title={outcome ? '' : 'Taslağın türünü seç'} onClose={onClose}>
+    <Sheet title={outcome ? '' : t('sheets.draftTitle')} onClose={onClose}>
       {({ close }) =>
         outcome ? (
-          <Celebration outcome={outcome} onAgain={close} againLabel="Kitaba dön" againIcon="book" hideBookLink />
+          <Celebration outcome={outcome} onAgain={close} againLabel={t('sheets.backToBook')} againIcon="book" hideBookLink />
         ) : (
           <>
             <Polaroid uri={uri} width={180} tilt={-1.5} style={{ alignSelf: 'center', marginTop: 8 }} />
             {candidates.length > 0 ? (
               <>
-                <Text style={type.muted}>Kayıt sırasında önerilen türler. Hangisi olduğuna karar verdin mi?</Text>
+                <Text style={type.muted}>{t('sheets.draftQuestion')}</Text>
                 <CandidateList candidates={candidates} selectedIndex={selected} onSelect={setSelected} />
-                <Button block title="Bu tür, kitaba ekle" onPress={confirm} disabled={busy || selected === null} />
+                <Button block title={t('sheets.draftConfirm')} onPress={confirm} disabled={busy || selected === null} />
               </>
             ) : (
-              <Text style={type.muted}>Bu fotoğraf için tür önerisi yok. Yeniden çekip taratmayı deneyebilirsin.</Text>
+              <Text style={type.muted}>{t('sheets.draftNoCandidates')}</Text>
             )}
             <Button
               variant="text"
               color={colors.earth}
-              title="Taslağı sil"
+              title={t('sheets.deleteDraft')}
               disabled={busy}
               onPress={async () => {
-                if (!(await confirmAsync('Taslak silinsin mi?', 'Bu taslak ve fotoğrafı silinecek.'))) return;
+                if (!(await confirmAsync(t('sheets.deleteDraftTitle'), t('sheets.deleteDraftText')))) return;
                 await deleteSighting(sighting.id);
                 close();
               }}

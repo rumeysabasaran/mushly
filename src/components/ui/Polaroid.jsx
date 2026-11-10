@@ -1,7 +1,7 @@
 /*
-  POLAROİD — Fotoğrafı sayfaya bantla yapıştırılmış gibi gösterir.
-  Üstte yarı saydam bir bant parçası, altta el yazısı tadında tarih.
-  tilt: hafif eğim (derece). Her fotoğraf biraz farklı dursun diye.
+  POLAROID — shows a photo as if it were taped onto the page.
+  A translucent piece of tape on top, a handwritten-style date underneath.
+  tilt: a slight angle (degrees), so each photo sits a little differently.
 */
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: colors.inkSoft,
   },
-  // yapışkan bant
+  // sticky tape
   tape: {
     position: 'absolute',
     left: '50%',
