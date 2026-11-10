@@ -17,6 +17,8 @@
 > [!IMPORTANT]
 > Mushly bir keşif defteridir, **tüketim rehberi değildir**. Hiçbir yerde yenebilirlik ya da zehirlilik bilgisi göstermez; fotoğrafla tür tespiti kesin değildir.
 
+Her tanıma sonucunda iNaturalist'ten gelen gerçek adlar, örnek fotoğraflar ve "Nasıl ayırt edilir?" ipucu görünür. Öneriler arasında doğru tür yoksa **"Hiçbiri değil, türü kendim arayayım"** ile Türkçe, İngilizce ya da Latince adıyla arayıp seçebilirsin.
+
 Uygulama telefonun diline göre **Türkçe** ya da **İngilizce** açılır. Yapay zekânın yazdığı tür tanımları da aynı dilde gelir.
 
 ## Telefonda çalıştırma (Expo Go)
@@ -48,13 +50,17 @@ Anahtar yoksa uygulama **deneme modunda** çalışır (her fotoğrafa aynı üç
 
 1. `.env.example` dosyasının bir kopyasını oluştur, adını `.env` yap.
 2. Anahtarlarını yapıştır:
-   - `EVREN_API_KEY` — varsayılan servis (Evren LLM API, 1 Aralık 2026'ya kadar ücretsiz)
-   - `GEMINI_API_KEY` — ücretsiz yedek ([Google AI Studio](https://aistudio.google.com/apikey))
+   - `GEMINI_API_KEY` — varsayılan servis, ücretsiz katman ([Google AI Studio](https://aistudio.google.com/apikey))
+   - `EVREN_API_KEY` — ücretsiz yedek (Evren LLM API, 1 Aralık 2026'ya kadar ücretsiz)
    - `ANTHROPIC_API_KEY` — ücretli son yedek (Claude, isteğe bağlı)
 3. `npm start`'ı durdurup yeniden başlat. Terminalde etkin zinciri görürsün:
-   `🍄 Species recognition: Evren · gemma-4-31b → fallback: Gemini · gemini-3.5-flash-lite`
+   `🍄 Species recognition: Gemini · gemini-3.5-flash-lite → fallback: Evren · qwen3-vl-30b`
 
-Bir servis hata verirse (kota, kredi, zaman aşımı…) sıradaki otomatik devralır. Sırayı değiştirmek için: `RECOGNIZER_ORDER=gemini,evren`.
+Bir servis hata verirse (kota, kredi, zaman aşımı…) sıradaki otomatik devralır. Sırayı değiştirmek için: `RECOGNIZER_ORDER=evren,gemini`.
+
+Varsayılan modeller ölçümle seçildi: iNaturalist'teki 48 onaylı fotoğrafla Gemini 3.5 Flash-Lite doğru türü %81 oranında ilk sıraya koydu (~11 sn). Ölçüm aracı `scripts/benchmark/` klasöründe; ayrıntılar İngilizce README'de.
+
+**Gizlilik:** Google'ın ücretsiz katmanında gönderilen içerik Google ürünlerini geliştirmek için kullanılabilir. Sadece fotoğraf gider; konum ve saha notları gönderilmez.
 
 **Anahtar neden güvende?** `.env` GitHub'a gönderilmez. Anahtar sadece bilgisayardaki sunucu kodunda (`server/`, `src/app/api/`) okunur; telefona hiç inmez.
 
@@ -68,6 +74,6 @@ Bir servis hata verirse (kota, kredi, zaman aşımı…) sıradaki otomatik devr
 | `src/data/` | Telefondaki veritabanı (SQLite) ve oyun kuralları |
 | `src/services/` | Fotoğraflar, tanıma, **güvenlik süzgeci**, bekleyenler kuyruğu |
 | `src/theme.js` | Tüm renkler, yazı tipleri ve ölçüler |
-| `server/` | Tanıma servislerine bağlanan kod (Evren → Gemini → Claude) |
+| `server/` | Tanıma servislerine bağlanan kod (Gemini → Evren → Claude) ve iNaturalist bağlantısı |
 
 Eski web sürümü `web-son` dalında duruyor: `git checkout web-son` (geri dönmek için `git checkout main`).

@@ -12,8 +12,9 @@
 import { tables, transaction, withMeta, newId } from '../data/db.js';
 import { RARITY, REPEAT_BONUS } from '../data/gamification.js';
 import { language } from '../i18n';
-import { commonNameOf } from './safety.js';
+import { commonNameOf, lacksTurkishLetters, pageTexts } from './safety.js';
 import { storePhotoFiles, deletePhotoFiles } from './photos';
+import { describeSpecies } from './recognizer';
 
 const { species: Species, sightings: Sightings, photos: Photos, points: Points, trips: Trips } = tables;
 
@@ -59,6 +60,7 @@ async function attachToSpecies(candidate, photoId, foundAt) {
     speciesKey,
     latinName: candidate.latinName,
     commonName: commonNameOf(candidate),
+    taxonId: candidate.taxonId ?? null, // iNaturalist taxon id, when recognition was grounded
     language, // the language the description was written in
     rarity: candidate.rarity,
     description: {
@@ -203,6 +205,47 @@ export async function deleteSighting(sightingId) {
   });
   // Files are deleted only after the database transaction succeeded
   if (photo) deletePhotoFiles(photo);
+}
+
+/**
+ * True when a species page should be written again: it is in another language than the
+ * app's (or from before pages had one), or its Turkish text lacks Turkish letters.
+ */
+export function needsRewrite(species) {
+  if (!species) return false;
+  if (species.language !== language) return true;
+  // Checked once: a page already rewritten for this isn't rewritten again on every start
+  return language === 'tr' && !species.lettersChecked && lacksTurkishLetters(pageTexts(species));
+}
+
+/**
+ * Rewrites a species page's descriptions and fun fact in the app's language, looking at
+ * its cover photo. Used for pages saved in another language (e.g. before the app was
+ * bilingual). The Latin name, rarity and points stay as they were.
+ */
+export async function rewriteSpeciesPage(speciesId) {
+  const species = await Species.get(speciesId);
+  if (!needsRewrite(species)) return;
+  const photo = await Photos.get(species.coverPhotoId);
+  if (!photo) return;
+  const written = await describeSpecies(photo, { latinName: species.latinName, taxonId: species.taxonId, referencePhotos: [] });
+  const hasText = [written.capShape, written.color, written.stem, written.habitat, written.season, written.funFact].some(Boolean);
+  if (!hasText) throw new Error('The rewritten page came back empty.'); // keep the old text rather than wipe it
+  await Species.update(speciesId, {
+    commonName: written.commonName || '',
+    taxonId: species.taxonId ?? written.taxonId ?? null,
+    language,
+    lettersChecked: true,
+    description: {
+      capShape: written.capShape,
+      color: written.color,
+      stem: written.stem,
+      habitat: written.habitat,
+      season: written.season,
+    },
+    funFact: written.funFact,
+    updatedAt: Date.now(),
+  });
 }
 
 /** Replaces the polaroid on a species page with another photo. */

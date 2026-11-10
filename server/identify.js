@@ -11,22 +11,25 @@
 
   AUTOMATIC FALLBACK CHAIN
   Services whose key is set in .env are tried in order:
-      1. Evren   (EVREN_API_KEY)      — free, default
-      2. Gemini  (GEMINI_API_KEY)     — free fallback
+      1. Gemini  (GEMINI_API_KEY)     — free, default (gemini-3.5-flash-lite)
+      2. Evren   (EVREN_API_KEY)      — free fallback (qwen3-vl-30b)
       3. Claude  (ANTHROPIC_API_KEY)  — paid fallback
   If a service fails (out of credit, quota reached, no reply…) the next one is tried.
-  To change the order: RECOGNIZER_ORDER=gemini,evren
+  To change the order: RECOGNIZER_ORDER=evren,gemini
   With no keys at all, the dev server runs in demo mode.
 */
-import { sanitizeResult } from '../src/services/safety.js';
-import { IdentifyError, buildPrompt, normalizeLanguage, resultSchema } from './prompt.js';
+import { lacksTurkishLetters, pageTexts, sanitizeCandidate, sanitizeResult } from '../src/services/safety.js';
+import { IdentifyError, buildDescribePrompt, buildPrompt, normalizeLanguage, resultSchema } from './prompt.js';
+import { enrichCandidates, searchSpecies } from './inaturalist.js';
 import { askEvren, DEFAULT_EVREN_MODEL } from './providers/evren.js';
 import { askGemini, DEFAULT_GEMINI_MODEL } from './providers/gemini.js';
 import { askClaude, CLAUDE_MODEL } from './providers/claude.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB (the phone already shrinks photos to ~300 KB)
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const DEFAULT_ORDER = ['evren', 'gemini', 'claude'];
+// Order chosen by measurement (scripts/benchmark): Gemini Flash-Lite was the most accurate
+// and fast; Evren qwen3-vl-30b is the fastest reliable fallback.
+const DEFAULT_ORDER = ['gemini', 'evren', 'claude'];
 
 // These errors are caused by the photo itself; switching services won't help.
 const NO_FALLBACK = new Set(['too-large']);
@@ -84,11 +87,17 @@ export async function handleIdentify(body, env) {
   const input = { image, mediaType, prompt: buildPrompt(language), schema: resultSchema(language) };
 
   let lastError = null;
+  let withoutLetters = null; // a reply in Turkish without Turkish letters, used only if nothing better comes
   for (const provider of providers) {
     try {
       const raw = await provider.ask(input);
       if (lastError) console.info(`[identify] Fallback service used: ${provider.label}`);
-      return reply(200, sanitizeResult(raw));
+      if (badTurkish(raw?.candidates?.[0], language)) {
+        console.warn(`[identify] ${provider.label} wrote Turkish without Turkish letters; trying the next service`);
+        withoutLetters ??= raw;
+        continue;
+      }
+      return reply(200, await groundResult(raw, language));
     } catch (err) {
       if (!(err instanceof IdentifyError)) {
         console.error(`[identify] ${provider.label} unexpected error:`, err);
@@ -101,8 +110,79 @@ export async function handleIdentify(body, env) {
     }
   }
 
+  if (withoutLetters) return reply(200, await groundResult(withoutLetters, language));
   // No service succeeded: report the last error
   return reply(lastError.status, { code: lastError.code, error: lastError.message });
+}
+
+/**
+ * Filters a raw reply, grounds its candidates in iNaturalist (names, photos) and
+ * filters again, so iNaturalist data passes the same safety rules as the AI's.
+ */
+export async function groundResult(raw, language) {
+  const clean = sanitizeResult(raw);
+  const candidates = await enrichCandidates(clean.candidates, language);
+  return sanitizeResult({ ...clean, candidates });
+}
+
+/** Same rule as the safety filter's Latin names: letters, spaces, dots and hyphens only */
+const LATIN_NAME = /^[A-Z][a-z-]+( [a-z.-]+){0,3}$/;
+
+/**
+ * Writes the book page for a species the user chose themselves (via search), using the
+ * photo for context. Returns { status, body: candidate }.
+ */
+export async function handleDescribe(body, env) {
+  const providers = pickProviders(env);
+  const latinName = String(body?.latinName ?? '').trim();
+  const image = body?.image;
+  if (!LATIN_NAME.test(latinName) || typeof image !== 'string' || !image || !ALLOWED_TYPES.includes(body?.mediaType)) {
+    return reply(400, { code: 'bad-request', error: 'Missing species name or photo.' });
+  }
+  if (image.length * 0.75 > MAX_IMAGE_BYTES) return reply(413, { code: 'too-large', error: 'The photo is too large.' });
+  if (providers.length === 0) return reply(500, { code: 'no-key', error: 'No API key is configured on the server.' });
+
+  const language = normalizeLanguage(body?.language);
+  const input = { image, mediaType: body.mediaType, prompt: buildDescribePrompt(language, latinName), schema: resultSchema(language) };
+
+  let lastError = null;
+  for (const [i, provider] of providers.entries()) {
+    try {
+      const raw = await provider.ask(input);
+      const isLast = i === providers.length - 1;
+      if (!isLast && badTurkish(raw?.candidates?.[0], language)) {
+        console.warn(`[describe] ${provider.label} wrote Turkish without Turkish letters; trying the next service`);
+        continue;
+      }
+      // Keep the user's choice whatever the model says; only take its descriptions
+      const written = { ...(raw?.candidates?.[0] ?? {}), latinName, confidence: 100 };
+      const grounded = await groundResult({ isMushroom: true, candidates: [written] }, language);
+      const candidate = grounded.candidates[0] ?? { latinName };
+      return reply(200, { ...candidate, source: 'user' });
+    } catch (err) {
+      lastError = err instanceof IdentifyError ? err : new IdentifyError('unknown', 'An unexpected error occurred.', 500);
+      console.warn(`[describe] ${provider.label} failed: ${lastError.code}`);
+    }
+  }
+  return reply(lastError.status, { code: lastError.code, error: lastError.message });
+}
+
+/** True when a Turkish reply was written without Turkish letters (ş, ı, ğ…). */
+function badTurkish(candidate, language) {
+  return language === 'tr' && !!candidate && lacksTurkishLetters(pageTexts(candidate));
+}
+
+/** Species search for the "none of these" option. Returns { status, body: { results } }. */
+export async function handleSearch(query, language) {
+  try {
+    const found = await searchSpecies(query, normalizeLanguage(language));
+    // Names from iNaturalist pass the same safety filter as the AI's
+    const results = found.map((r) => ({ ...sanitizeCandidate(r), rank: r.rank }));
+    return reply(200, { results });
+  } catch (err) {
+    console.warn('[search] failed:', err.message);
+    return reply(503, { code: 'unreachable', error: 'Species search is unavailable.' });
+  }
 }
 
 function reply(status, body) {

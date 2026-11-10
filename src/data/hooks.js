@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { tables, subscribe } from './db.js';
 import { photoUri } from '../services/photos';
+import { needsRewrite, rewriteSpeciesPage } from '../services/collection';
 
 /**
  * Runs the query, and runs it again whenever the database changes.
@@ -112,4 +113,34 @@ export function usePhotoUri(photoId, variant = 'thumb') {
     [photoId, variant],
     null
   );
+}
+
+/**
+ * Rewrites, in the app's language, species pages that were saved in another one
+ * (e.g. before the app was bilingual). Runs in the background, one page at a time;
+ * the book updates by itself as each page is saved. A page that fails (no internet,
+ * service busy) is tried again the next time the app starts.
+ */
+const rewriteTried = new Set();
+let rewriting = false;
+
+export function useRewriteForeignPages(species) {
+  useEffect(() => {
+    if (rewriting || !species?.length) return;
+    const queue = species.filter((s) => needsRewrite(s) && !rewriteTried.has(s.id));
+    if (!queue.length) return;
+    rewriting = true;
+    (async () => {
+      for (const s of queue) {
+        rewriteTried.add(s.id);
+        try {
+          await rewriteSpeciesPage(s.id);
+        } catch {
+          // left as it is; tried again on the next app start
+        }
+      }
+    })().finally(() => {
+      rewriting = false;
+    });
+  }, [species]);
 }

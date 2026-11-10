@@ -70,7 +70,13 @@ export function errorMessage(code) {
   return message === key ? t('errors.generic') : message;
 }
 
-/** Language-aware uppercase (Turkish: i → İ). Never rely on textTransform for this. */
+/**
+ * Language-aware uppercase (Turkish: i → İ, ı → I). Never rely on textTransform for this.
+ * The dotted/dotless i is mapped by hand, because some JavaScript engines on phones
+ * ignore the locale in toLocaleUpperCase() and would turn "mevsim" into "MEVSIM".
+ */
 export function upper(text) {
-  return typeof text === 'string' ? text.toLocaleUpperCase(localeTag) : text;
+  if (typeof text !== 'string') return text;
+  if (language === 'tr') return text.replace(/i/g, 'İ').replace(/ı/g, 'I').toUpperCase();
+  return text.toUpperCase();
 }

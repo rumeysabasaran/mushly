@@ -23,6 +23,7 @@ const BANNED_PATTERNS = [
   /ölüm/, /öldür/, /köygöçüren/, /şifa/, /tıbb?i/, /ilaç/, /tedavi/,
   /halüsin/, /sanrı/, /sindirim/, /mide/, /karaciğer/, /böbrek/,
   /zararlı/, /tehlikeli/, /güvenli/, /sağlığ/, /sağlık/, /hayati/,
+  /kustur/, /kusma/, /ishal/, /ziyafet/, /şölen/, /gurme/, /aşçı/, /restoran/, /\bmenü/, /lokanta/,
   // English
   /\bedib/, /\binedib/, /poison/, /toxic/, /toxin/, /venom/, /\beat/, /\bcook/,
   /culinary/, /delicious/, /tasty/, /\btaste/, /flavo/, /recipe/, /kitchen/, /cuisine/,
@@ -30,12 +31,14 @@ const BANNED_PATTERNS = [
   /forag/, /deadly/, /lethal/, /fatal/, /\bdeath/, /\bkill/, /medicin/, /\bcure/, /remed/,
   /therap/, /hallucin/, /psychedel/, /psychoactiv/, /\bdrug/, /digest/, /stomach/,
   /\bliver/, /kidney/, /harmful/, /dangerous/, /\bsafe/, /health/,
+  /vomit/, /emetic/, /sicken/, /nause/, /diarrh/, /\bfeast/, /banquet/, /\bchef/, /restaurant/, /\bmenu\b/, /destroying angel/,
 ];
 
 /** Does the text contain a banned expression? */
 export function containsBanned(text) {
   if (typeof text !== 'string' || !text) return false;
-  const tr = text.toLocaleLowerCase('tr-TR');
+  // Turkish lowercase by hand (İ → i, I → ı): some phone JS engines ignore the locale argument
+  const tr = text.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
   const en = text.toLowerCase(); // second pass for the English "I"
   return BANNED_PATTERNS.some((p) => p.test(tr) || p.test(en));
 }
@@ -61,11 +64,55 @@ function cleanLatinName(name) {
 }
 
 /**
+ * True when some Turkish text was written without Turkish letters ("baslangicta konik
+ * yapidadir" instead of "başlangıçta konik yapıdadır"). Some models do this now and
+ * then, sometimes in only one field, so each text is checked on its own:
+ * - a sentence of 35+ letters with none of ç ğ ı ö ş ü is almost never real Turkish;
+ * - shorter ones are caught by common words in their letterless form.
+ */
+const TURKISH_LETTERS = /[çğıöşüÇĞİÖŞÜ]/;
+const LETTERLESS_WORDS =
+  /\b(sapka\w*|baslangic\w*|yapid\w*|agac\w*|uzerin\w*|buyu\w*|kucuk\w*|genis\w*|gorul\w*|gorun\w*|yetisi\w*|olusu\w*|cok|icin|yuzey\w*|kirmizi\w*|sarims\w*|beyazims\w*|kahverengims\w*|acik|dogal|duzle\w*|ormanlik\w*|topragi\w*|halkasi|kesesi|ozellik\w*|ilginc\w*)\b/i;
+
+function letterlessText(text) {
+  if (typeof text !== 'string' || TURKISH_LETTERS.test(text)) return false;
+  const letters = text.replace(/[^a-zA-Z]/g, '').length;
+  return letters >= 35 || (letters >= 10 && LETTERLESS_WORDS.test(text));
+}
+
+export function lacksTurkishLetters(texts) {
+  return texts.some(letterlessText);
+}
+
+/** The page texts of a candidate or species record, for lacksTurkishLetters */
+export function pageTexts(item) {
+  const d = item?.description ?? item ?? {};
+  return [d.capShape, d.color, d.stem, d.habitat, d.season, item?.funFact, item?.tellApart];
+}
+
+/**
  * The common name of a species or candidate.
  * Records saved before the English migration used `turkishName`.
  */
 export function commonNameOf(item) {
   return item?.commonName || item?.turkishName || '';
+}
+
+// Reference photos may only come from iNaturalist's own photo hosts
+const PHOTO_URL = /^https:\/\/(inaturalist-open-data\.s3\.amazonaws\.com|static\.inaturalist\.org)\/photos\/\d+\/(square|small|medium|large)\.(jpe?g|png)$/i;
+const PHOTO_LICENSES = ['cc0', 'cc-by', 'cc-by-sa', 'cc-by-nc', 'cc-by-nc-sa'];
+
+/** Keeps only well-formed, openly licensed iNaturalist photos (at most 4). */
+function cleanPhotos(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((p) => typeof p?.url === 'string' && PHOTO_URL.test(p.url) && PHOTO_LICENSES.includes(p.license))
+    .slice(0, 4)
+    .map((p) => ({
+      url: p.url,
+      license: p.license,
+      attribution: typeof p.attribution === 'string' ? p.attribution.replace(/\s+/g, ' ').trim().slice(0, 160) : '',
+    }));
 }
 
 /** Rebuilds a single species candidate from the allow-list. */
@@ -86,6 +133,9 @@ export function sanitizeCandidate(raw) {
     habitat: cleanText(raw?.habitat, 260),
     season: cleanText(raw?.season, 120),
     funFact: cleanText(raw?.funFact, 360),
+    tellApart: cleanText(raw?.tellApart, 220),
+    taxonId: Number.isInteger(raw?.taxonId) && raw.taxonId > 0 ? raw.taxonId : null,
+    referencePhotos: cleanPhotos(raw?.referencePhotos),
   };
 }
 

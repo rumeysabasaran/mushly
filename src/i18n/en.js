@@ -99,6 +99,33 @@ export default {
     candidatesLabel: 'Possible species',
     candidateLabel: '{name}, {confidence} percent',
     percent: '{value}%',
+    tellApart: 'How to tell',
+    comparePhotos: 'Compare with reference photos',
+    searchOwn: "None of these, I'll search for it",
+    yourChoice: 'Your choice',
+    writingPage: 'Writing its page…',
+  },
+
+  search: {
+    title: 'Search for the species',
+    subtitle: 'Know what it is? Type its name and pick it from the list.',
+    placeholder: 'Common or Latin name, e.g. chanterelle',
+    hint: 'Type at least 2 letters.',
+    empty: 'No mushroom species found for "{query}".',
+    error: 'Search needs an internet connection. Please try again.',
+    clear: 'Clear search',
+    credit: 'Names and photos from iNaturalist',
+    back: '← Back to suggestions',
+  },
+
+  compare: {
+    yourPhoto: 'Your photo',
+    reference: 'Reference {index}/{total}',
+    referenceTitle: 'Reference',
+    noPhotos: 'No reference photos for this species.',
+    showPhoto: 'Show reference photo {index}',
+    credit: 'Photo: {attribution} · via iNaturalist',
+    choose: 'This is the one',
   },
 
   celebration: {
@@ -175,6 +202,7 @@ export default {
     season: 'Season',
     funFact: 'Did you know?',
     aiNote: 'Description and facts were written by AI and may contain mistakes.',
+    rewriting: 'This page is being rewritten in English…',
     fieldNotes: 'Field notes',
     photos: 'Photos ({count})',
     edit: 'Edit',

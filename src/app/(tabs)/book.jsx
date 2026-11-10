@@ -19,7 +19,7 @@ import { CoverPage, TocPage, SpeciesPage, MysteryPage, DraftsPage, EndPage } fro
 import { PhotoSheet, EditSheet, DraftSheet } from '../../components/book/BookSheets';
 import Icon from '../../components/ui/Icon';
 import { Eyebrow } from '../../components/ui/Typography';
-import { useBookData } from '../../data/hooks';
+import { useBookData, useRewriteForeignPages } from '../../data/hooks';
 import { MYSTERY_SPECIES } from '../../data/catalog';
 import { speciesKeyOf } from '../../services/collection';
 import { commonNameOf, displayName } from '../../services/safety';
@@ -64,6 +64,7 @@ export default function BookScreen() {
   const { page: pageKey, t: requestId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const data = useBookData();
+  useRewriteForeignPages(data?.species);
   const [showMystery, setShowMystery] = useRememberedToggle(MYSTERY_KEY, true);
   const [index, setIndex] = useState(0);
   const [sheet, setSheet] = useState(null); // { type: 'photo'|'edit'|'draft', ... }

@@ -2,9 +2,10 @@
   DEMO RECOGNIZER — used only on the dev server when .env has NO API key.
   It lets you try the whole flow (results → choice → save → celebration) without a key.
   It doesn't identify anything; it returns the same three species in random order.
+  (Reference photos still need internet, as they come from iNaturalist.)
 */
-import { sanitizeResult } from '../src/services/safety.js';
 import { normalizeLanguage } from './prompt.js';
+import { groundResult } from './identify.js';
 
 const SAMPLES = [
   {
@@ -18,6 +19,7 @@ const SAMPLES = [
       habitat: 'Forms clusters on dead trunks and stumps of broadleaf trees.',
       season: 'All year',
       funFact: 'Its colorful bands resemble the tail feathers of a wild turkey, which gave it its name.',
+      tellApart: 'Look under the cap: it has tiny pores and is thin and leathery, not thick and hard.',
     },
     tr: {
       commonName: 'Hindi kuyruğu mantarı',
@@ -27,6 +29,7 @@ const SAMPLES = [
       habitat: 'Ölü yaprak döken ağaç gövdelerinde ve kütüklerde kümeler oluşturur.',
       season: 'Yıl boyu',
       funFact: 'Renkli halkaları yaban hindisinin kuyruk tüylerine benzediği için bu adı almıştır.',
+      tellApart: 'Şapkanın altına bak: ince ve deri gibidir, kalın ve sert değildir.',
     },
   },
   {
@@ -40,6 +43,7 @@ const SAMPLES = [
       habitat: 'Lives for years on the trunks of trees such as beech and birch.',
       season: 'All year',
       funFact: 'Its felt-like inner layer was once used as tinder to start fires.',
+      tellApart: 'It is thick, hard and hoof-shaped, with grey bands on top.',
     },
     tr: {
       commonName: 'Kav mantarı',
@@ -49,6 +53,7 @@ const SAMPLES = [
       habitat: 'Kayın ve huş gibi ağaçların gövdelerinde yıllarca yaşar.',
       season: 'Yıl boyu',
       funFact: 'İçindeki keçemsi doku eskiden ateş yakmak için "kav" olarak kullanılırdı.',
+      tellApart: 'Kalın, sert ve at toynağı biçimindedir; üstünde gri bantlar vardır.',
     },
   },
   {
@@ -62,6 +67,7 @@ const SAMPLES = [
       habitat: 'Found at the base of old and dead broadleaf trees.',
       season: 'All year',
       funFact: 'Lines scratched into its white underside turn permanently brown, so people draw pictures on it.',
+      tellApart: 'Scratch the white underside gently: if the mark turns brown, it is this one.',
     },
     tr: {
       commonName: 'Ressam mantarı',
@@ -71,6 +77,7 @@ const SAMPLES = [
       habitat: 'Yaşlı ve ölü yaprak döken ağaçların dibinde bulunur.',
       season: 'Yıl boyu',
       funFact: 'Beyaz alt yüzeyine çizilen çizgiler kalıcı olarak kahveye döner; bu yüzden üzerine resim yapılır.',
+      tellApart: 'Beyaz alt yüzeyini hafifçe çiz: iz kahveye dönüyorsa budur.',
     },
   },
 ];
@@ -85,5 +92,15 @@ export async function mockIdentify(body) {
     photoTip: '',
     candidates: shuffled.map((s, i) => ({ latinName: s.latinName, rarity: s.rarity, ...s[language], confidence: confidences[i] })),
   };
-  return { status: 200, body: { ...sanitizeResult(raw), mock: true } };
+  // Grounded like a real result, so demo mode shows iNaturalist names and photos too
+  return { status: 200, body: { ...(await groundResult(raw, language)), mock: true } };
+}
+
+/** Demo version of /api/describe: the chosen species with iNaturalist name and photos, no descriptions. */
+export async function mockDescribe(body) {
+  await new Promise((r) => setTimeout(r, 600));
+  const language = normalizeLanguage(body?.language);
+  const latinName = String(body?.latinName ?? '').trim();
+  const grounded = await groundResult({ isMushroom: true, candidates: [{ latinName, confidence: 100 }] }, language);
+  return { status: 200, body: { ...(grounded.candidates[0] ?? { latinName }), source: 'user', mock: true } };
 }

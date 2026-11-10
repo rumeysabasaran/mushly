@@ -1,14 +1,16 @@
 /*
-  EVREN LLM API — default recognition service (free, OpenAI-compatible format)
+  EVREN LLM API — fallback recognition service (free, OpenAI-compatible format)
   URL: https://evren-llmapi.ssyz.org.tr
 
   Required (.env):  EVREN_API_KEY=evren_llm_...
-  Optional:         EVREN_MODEL=gemma-4-31b   (any other vision-capable model also works)
+  Optional:         EVREN_MODEL=qwen3-vl-30b   (any other vision-capable model also works)
+
+  qwen3-vl-30b was as accurate as gemma-4-31b in our benchmark, about 5x faster and never timed out.
 */
 import { IdentifyError, parseJsonReply } from '../prompt.js';
 
 const BASE_URL = 'https://evren-llmapi.ssyz.org.tr/v1';
-export const DEFAULT_EVREN_MODEL = 'gemma-4-31b';
+export const DEFAULT_EVREN_MODEL = 'qwen3-vl-30b';
 const TIMEOUT_MS = 80_000;
 
 export async function askEvren({ image, mediaType, prompt, schema, apiKey, model = DEFAULT_EVREN_MODEL }) {

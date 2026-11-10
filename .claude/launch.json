@@ -4,20 +4,41 @@
     {
       "name": "mushly-web",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--web", "--port", "8081"],
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8081"
+      ],
       "port": 8081
     },
     {
       "name": "mushly-web-mock",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set RECOGNIZER_ORDER=none&& npx expo start --web --port 8081"],
+      "runtimeArgs": [
+        "/c",
+        "set RECOGNIZER_ORDER=none&& npx expo start --web --port 8081"
+      ],
       "port": 8081
     },
     {
       "name": "mushly-web-mock-en",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set RECOGNIZER_ORDER=none&& set EXPO_PUBLIC_LANGUAGE=en&& npx expo start --web --port 8081"],
-      "port": 8081
+      "runtimeArgs": [
+        "/c",
+        "set RECOGNIZER_ORDER=none&& set EXPO_PUBLIC_LANGUAGE=en&& npx expo start --web --port 8082"
+      ],
+      "port": 8082
+    },
+    {
+      "name": "mushly-web-mock-tr",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set RECOGNIZER_ORDER=none&& set EXPO_PUBLIC_LANGUAGE=tr&& npx expo start --web --port 8083"
+      ],
+      "port": 8083
     }
   ]
 }

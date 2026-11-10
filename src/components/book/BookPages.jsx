@@ -18,6 +18,7 @@ import { usePhotoUri } from '../../data/hooks';
 import { rarityLabel } from '../../data/gamification';
 import { formatDate, weatherLabel } from '../../data/fieldNotes';
 import { commonNameOf, displayName } from '../../services/safety';
+import { needsRewrite } from '../../services/collection';
 import { localized, t, upper } from '../../i18n';
 import { colors, fonts, shadows } from '../../theme';
 
@@ -207,6 +208,8 @@ export function SpeciesPage({ number, no, species, sightings, onOpenPhoto, onEdi
         <Polaroid uri={coverUri} caption={formatDate(species.firstFoundAt)} tilt={tiltFor(species.id)} width={230} />
       </Pressable>
 
+      {needsRewrite(species) && <Text style={styles.rewriting}>{t('book.rewriting')}</Text>}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('book.description')}</Text>
         <View style={{ gap: 8 }}>
@@ -391,6 +394,7 @@ const styles = StyleSheet.create({
   factTitle: { fontFamily: fonts.serif, fontSize: 18, color: colors.earth },
   factText: { fontFamily: fonts.sans, fontSize: 14.5, lineHeight: 21, color: colors.ink },
   aiNote: { fontFamily: fonts.sansItalic, fontSize: 12, color: colors.inkFaint, marginTop: -6 },
+  rewriting: { fontFamily: fonts.sansItalic, fontSize: 12.5, color: colors.moss, textAlign: 'center' },
   note: { paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.paperEdge, gap: 2 },
   noteHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   noteDate: { fontFamily: fonts.serif, fontSize: 17.5, color: colors.forest },

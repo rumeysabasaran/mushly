@@ -93,6 +93,33 @@ export default {
     candidatesLabel: 'Olası türler',
     candidateLabel: '{name}, yüzde {confidence}',
     percent: '%{value}',
+    tellApart: 'Nasıl ayırt edilir',
+    comparePhotos: 'Örnek fotoğraflarla karşılaştır',
+    searchOwn: 'Hiçbiri değil, türü kendim arayayım',
+    yourChoice: 'Senin seçimin',
+    writingPage: 'Sayfası yazılıyor…',
+  },
+
+  search: {
+    title: 'Türü ara',
+    subtitle: 'Ne olduğunu biliyor musun? Adını yaz, listeden seç.',
+    placeholder: 'Türkçe ya da Latince ad, ör. kanlıca',
+    hint: 'En az 2 harf yaz.',
+    empty: '"{query}" için mantar türü bulunamadı.',
+    error: 'Arama için internet bağlantısı gerekiyor. Lütfen tekrar dene.',
+    clear: 'Aramayı temizle',
+    credit: 'Adlar ve fotoğraflar iNaturalist\'ten',
+    back: '← Önerilere dön',
+  },
+
+  compare: {
+    yourPhoto: 'Senin fotoğrafın',
+    reference: 'Örnek {index}/{total}',
+    referenceTitle: 'Örnek',
+    noPhotos: 'Bu tür için örnek fotoğraf yok.',
+    showPhoto: 'Örnek fotoğraf {index}',
+    credit: 'Fotoğraf: {attribution} · iNaturalist',
+    choose: 'Bu tür',
   },
 
   celebration: {
@@ -167,6 +194,7 @@ export default {
     season: 'Mevsim',
     funFact: 'Biliyor muydun?',
     aiNote: 'Tanım ve bilgi yapay zekâ tarafından yazıldı; hatalı olabilir.',
+    rewriting: 'Bu sayfa Türkçe olarak yeniden yazılıyor…',
     fieldNotes: 'Saha notları',
     photos: 'Fotoğraflar ({count})',
     edit: 'Düzenle',

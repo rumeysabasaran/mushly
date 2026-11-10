@@ -30,7 +30,7 @@ function Label({ children }) {
   return <Text style={styles.label}>{children}</Text>;
 }
 
-export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel = t('identify.submitSave'), busy = false, bare = false }) {
+export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel = t('identify.submitSave'), busy = false, busyLabel, bare = false }) {
   const n = initial?.notes ?? {};
   const initialCoords = n.location?.lat != null ? { lat: n.location.lat, lng: n.location.lng, accuracy: n.location.accuracy } : null;
 
@@ -161,7 +161,7 @@ export default function FieldNotesForm({ initial, onSubmit, onBack, submitLabel 
       </View>
 
       <View style={styles.actions}>
-        <Button block title={busy ? t('common.saving') : submitLabel} onPress={submit} disabled={busy} />
+        <Button block title={busy ? (busyLabel ?? t('common.saving')) : submitLabel} onPress={submit} disabled={busy} />
         {onBack && <Button variant="text" title={t('notes.backToChoice')} onPress={onBack} disabled={busy} />}
       </View>
     </Wrapper>

@@ -23,7 +23,7 @@
   translated message with t(`errors.${code}`).
 */
 import NetInfo from '@react-native-community/netinfo';
-import { sanitizeResult } from './safety.js';
+import { sanitizeCandidate, sanitizeResult } from './safety.js';
 import { photoBase64 } from './photos';
 import { language } from '../i18n';
 
@@ -91,4 +91,56 @@ export async function identify(photo) {
 
   // The server already filtered the result; filter once more on the phone (two layers).
   return { ...sanitizeResult(data), mock: data.mock === true };
+}
+
+// ---------------------------------------------------------------- "none of these" search
+
+/** Searches mushroom species by name (Turkish, English or Latin) on iNaturalist, via the server. */
+export async function searchSpecies(query) {
+  const params = new URLSearchParams({ q: query, language });
+  let response;
+  try {
+    response = await fetch(`/api/species?${params}`);
+  } catch {
+    throw new OfflineError();
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new RecognitionError(data.error || 'Search failed.', data.code);
+  return (data.results ?? []).map((r) => ({ ...sanitizeCandidate(r), source: 'user' })).filter((r) => r.latinName);
+}
+
+/**
+ * Asks the server to write the book page (descriptions, rarity, fun fact) for a species
+ * the user chose themselves. Returns the candidate with descriptions filled in.
+ */
+export async function describeSpecies(photo, candidate) {
+  const image = await photoBase64(photo);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch('/api/describe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image, mediaType: 'image/jpeg', language, latinName: candidate.latinName }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw err?.name === 'AbortError' ? new RecognitionError('Took too long.', 'timeout') : new OfflineError();
+  } finally {
+    clearTimeout(timer);
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new RecognitionError(data.error || 'Describe failed.', data.code);
+  const written = sanitizeCandidate(data);
+  // Keep the user's choice and iNaturalist data even if the reply lacks them
+  return {
+    ...written,
+    latinName: candidate.latinName,
+    commonName: written.commonName || candidate.commonName,
+    taxonId: written.taxonId ?? candidate.taxonId,
+    referencePhotos: written.referencePhotos.length ? written.referencePhotos : candidate.referencePhotos,
+    confidence: null,
+    source: 'user',
+  };
 }

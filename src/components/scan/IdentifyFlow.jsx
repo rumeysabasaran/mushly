@@ -1,8 +1,12 @@
 /*
   IDENTIFY FLOW — once we have a photo and a recognition result:
-  1. Candidates  → the user picks a species or says "I'm not sure"
+  1. Candidates  → the user picks a species, says "I'm not sure", or searches
+                   for the species themselves ("none of these" → SpeciesSearch)
   2. Field notes → optional details
   3. Celebration → new page / repeat / draft
+
+  A species the user found by search has no descriptions yet; its book page is
+  written by the AI when saving (describeSpecies). If that fails, it is saved anyway.
 
   Used by both the Scan screen and the Pending screen.
 */
@@ -15,23 +19,31 @@ import Paper from '../ui/Paper';
 import Button from '../ui/Button';
 import Icon from '../ui/Icon';
 import CandidateList from './CandidateList';
+import SpeciesSearch from './SpeciesSearch';
 import FieldNotesForm from './FieldNotesForm';
 import Celebration from './Celebration';
 import { type } from '../ui/Typography';
 import { usePhotoUri } from '../../data/hooks';
+import { tables } from '../../data/db';
 import { recordSighting } from '../../services/collection';
+import { describeSpecies } from '../../services/recognizer';
 import { displayName } from '../../services/safety';
 import { t } from '../../i18n';
 import { colors, fonts, radius } from '../../theme';
 
 export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAgain, againLabel, onStepChange }) {
   const photoUri = usePhotoUri(photoId, 'full');
-  const hasCandidates = result.isMushroom && result.candidates.length > 0;
+  const [userPick, setUserPick] = useState(null); // a species the user found by search
+  const aiCandidates = result.isMushroom ? result.candidates : [];
+  const candidates = userPick
+    ? [userPick, ...aiCandidates.filter((c) => c.latinName !== userPick.latinName)]
+    : aiCandidates;
+  const hasCandidates = candidates.length > 0;
 
-  const [step, setStepState] = useState('choose'); // choose | notes | done
+  const [step, setStepState] = useState('choose'); // choose | search | notes | done
   const [selected, setSelected] = useState(hasCandidates ? 0 : null);
   const [asDraft, setAsDraft] = useState(!hasCandidates);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false); // false | 'saving' | 'writing'
   const [error, setError] = useState('');
   const [outcome, setOutcome] = useState(null);
 
@@ -41,11 +53,18 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
   };
 
   async function save({ foundAt, notes }) {
-    setBusy(true);
     setError('');
     try {
-      const candidate = asDraft ? null : result.candidates[selected];
-      const res = await recordSighting({ photoId, candidate, candidates: result.candidates, notes, foundAt });
+      let candidate = asDraft ? null : candidates[selected];
+      if (candidate?.source === 'user' && !candidate.capShape) {
+        setBusy('writing');
+        candidate = await describeSpecies(await tables.photos.get(photoId), candidate).catch((err) => {
+          console.warn('[describe]', err.message);
+          return candidate; // save without descriptions rather than not at all
+        });
+      }
+      setBusy('saving');
+      const res = await recordSighting({ photoId, candidate, candidates, notes, foundAt });
       await onSaved?.(res);
       setOutcome(res);
       setStep('done');
@@ -61,7 +80,14 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
     return <Celebration outcome={outcome} onAgain={onAgain} againLabel={againLabel} />;
   }
 
-  const chosen = !asDraft && selected !== null ? result.candidates[selected] : null;
+  const chosen = !asDraft && selected !== null ? candidates[selected] : null;
+
+  const pick = (item) => {
+    setUserPick(item);
+    setSelected(0);
+    setAsDraft(false);
+    setStep('choose');
+  };
 
   return (
     <View style={styles.wrap}>
@@ -69,7 +95,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
         <Polaroid
           uri={photoUri}
           caption={step === 'notes' ? (chosen ? displayName(chosen) : t('common.draft')) : undefined}
-          width={step === 'notes' ? 170 : 240}
+          width={step === 'notes' ? 170 : step === 'search' ? 130 : 240}
         />
       </Appear>
 
@@ -89,8 +115,9 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
                 <Text style={type.muted}>{t('identify.uncertain')}</Text>
               </View>
               <CandidateList
-                candidates={result.candidates}
+                candidates={candidates}
                 selectedIndex={asDraft ? null : selected}
+                userPhotoUri={photoUri}
                 onSelect={(i) => {
                   setSelected(i);
                   setAsDraft(false);
@@ -111,6 +138,7 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
             {hasCandidates && (
               <Button block title={t('identify.confirm')} disabled={asDraft || selected === null} onPress={() => setStep('notes')} />
             )}
+            <Button block variant="ghost" icon="eye" title={t('identify.searchOwn')} onPress={() => setStep('search')} />
             <Button
               block
               variant="ghost"
@@ -125,12 +153,19 @@ export default function IdentifyFlow({ photoId, result, onSaved, onCancel, onAga
         </Animated.View>
       )}
 
+      {step === 'search' && (
+        <Animated.View entering={FadeIn.duration(250)}>
+          <SpeciesSearch onPick={pick} onBack={() => setStep('choose')} />
+        </Animated.View>
+      )}
+
       {step === 'notes' && (
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: 10 }}>
           <FieldNotesForm
             onSubmit={save}
             onBack={() => setStep('choose')}
-            busy={busy}
+            busy={!!busy}
+            busyLabel={busy === 'writing' ? t('identify.writingPage') : undefined}
             submitLabel={asDraft ? t('identify.submitDraft') : t('identify.submitSave')}
           />
           {!!error && <Text style={styles.error}>{error}</Text>}

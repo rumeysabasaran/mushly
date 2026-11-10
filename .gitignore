@@ -25,3 +25,6 @@ expo-env.d.ts
 *.mobileprovision
 *.pem
 .DS_Store
+
+# Recognition benchmark output
+scripts/benchmark/results/

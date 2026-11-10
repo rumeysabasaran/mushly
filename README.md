@@ -28,6 +28,8 @@ Photograph a mushroom, get the three most likely species, and watch a hand-drawn
 ## Features
 
 - **Photo identification** — take or choose a photo; an AI vision model suggests the 3 most likely species with confidence scores.
+- **Easy to choose, even for beginners** — every suggestion shows real reference photos and a one-line "how to tell" tip; tap a photo to compare it side by side with your own. Names and photos come from [iNaturalist](https://www.inaturalist.org), so species the AI invents are filtered out.
+- **"None of these"** — if the right species isn't among the suggestions, search for it by its Turkish, English or Latin name; the AI then writes its book page from your photo.
 - **A collection book** — every new species gets its own page in a notebook you flip with your finger, with a description, a "Did you know?" fact and your photos.
 - **Field notes** — date, place (optional GPS), weather, who you were with and a free-form note for each find.
 - **Drafts** — not sure? Save the find as a draft and pick the species later.
@@ -43,6 +45,11 @@ The project has one non-negotiable rule: **no edibility, toxicity or consumption
 - The recognition schema has no field for it, and the prompt forbids it.
 - Every response passes through an allow-list filter ([`src/services/safety.js`](src/services/safety.js)) that drops unknown fields and any sentence containing a banned word stem, in both languages.
 - The filter runs twice: on the server and again on the phone.
+- From iNaturalist only names, ids and openly licensed photo URLs are used — never its descriptive text.
+
+## Credits
+
+Reference photos and common names come from [iNaturalist](https://www.inaturalist.org) and are shown with each photographer's credit under their Creative Commons license. Only Latin names are sent to iNaturalist; your photos, location and notes never are.
 
 ## Tech stack
 
@@ -55,7 +62,7 @@ The project has one non-negotiable rule: **no edibility, toxicity or consumption
 | Graphics | `react-native-svg` for icons, ornaments and paper texture |
 | Fonts | Cormorant Garamond (headings), Nunito (body) |
 | Localization | `expo-localization` + a small dictionary-based `t()` helper |
-| Recognition | Expo API route → Evren LLM API, with Google Gemini and Anthropic Claude as automatic fallbacks |
+| Recognition | Expo API route → Google Gemini, with Evren LLM API and Anthropic Claude as automatic fallbacks; names and photos grounded in iNaturalist |
 
 ## Getting started
 
@@ -86,14 +93,31 @@ Copy `.env.example` to `.env` and add at least one key. The `.env` file is git-i
 
 | Variable | Purpose |
 |---|---|
-| `EVREN_API_KEY` | Default recognition service ([Evren LLM API](https://evren-llmapi.ssyz.org.tr), free until 1 Dec 2026) |
-| `EVREN_MODEL` | Optional, defaults to `gemma-4-31b` |
-| `GEMINI_API_KEY` | Free fallback ([Google AI Studio](https://aistudio.google.com/apikey)) |
+| `GEMINI_API_KEY` | Default recognition service, free tier ([Google AI Studio](https://aistudio.google.com/apikey)) |
 | `GEMINI_MODEL` | Optional, defaults to `gemini-3.5-flash-lite` |
+| `EVREN_API_KEY` | Free fallback ([Evren LLM API](https://evren-llmapi.ssyz.org.tr), free until 1 Dec 2026) |
+| `EVREN_MODEL` | Optional, defaults to `qwen3-vl-30b` |
 | `ANTHROPIC_API_KEY` | Paid, last-resort fallback (Claude) |
-| `RECOGNIZER_ORDER` | Optional order, e.g. `gemini,evren` |
+| `RECOGNIZER_ORDER` | Optional order, e.g. `evren,gemini` |
 
-Services with a key are tried in order; if one fails (quota, credit, timeout…), the next takes over. Restart `npm start` after changing `.env`; the terminal prints the active chain, e.g. `🍄 Species recognition: Evren · gemma-4-31b → fallback: Gemini · gemini-3.5-flash-lite`.
+Services with a key are tried in order; if one fails (quota, credit, timeout…), the next takes over. Restart `npm start` after changing `.env`; the terminal prints the active chain, e.g. `🍄 Species recognition: Gemini · gemini-3.5-flash-lite → fallback: Evren · qwen3-vl-30b`.
+
+### Measuring recognition quality
+
+The default models were chosen by measurement, not guesswork. `scripts/benchmark/` sends 48 research-grade iNaturalist photos (24 species common in Türkiye and Europe) through the real recognition pipeline and reports how often the right species comes first:
+
+```bash
+node --env-file=.env scripts/benchmark/run.mjs --models=gemini:gemini-3.5-flash-lite,evren:qwen3-vl-30b
+```
+
+| Model | Right species first | In top 3 | Median time |
+|---|---|---|---|
+| Gemini 3.5 Flash-Lite | 81% | 88% | ~11 s |
+| Evren qwen3-vl-30b | 48% | 56% | ~10 s |
+| Evren gemma-4-31b | 48% | 56% | ~52 s |
+| **App default** (Gemini, retries when busy, Evren fallback) | **75%** | **81%** | **~9 s** |
+
+*Measured on 10 November 2026, Turkish prompts. The default chain had no failed requests; Gemini's free tier is often "busy", which is why the chain scores below Gemini alone.* Rebuild the test set with `node scripts/benchmark/build-testset.mjs`.
 
 > [!NOTE]
 > On Google's free tier, submitted content may be used to improve Google's products. Only the photo is sent; location and field notes never leave the phone.

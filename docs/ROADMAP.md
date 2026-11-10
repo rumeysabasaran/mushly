@@ -64,7 +64,9 @@ src/
     collection.js, pendingQueue.js → Saving finds and the offline queue
 server/
   prompt.js             → Prompt and response schema (per language)
-  identify.js, providers/ → Evren → Gemini → Claude fallback chain
+  identify.js, providers/ → Gemini → Evren → Claude fallback chain
+  inaturalist.js        → Grounds names and reference photos in iNaturalist
+scripts/benchmark/      → Recognition accuracy and speed measurement
 functions/api/identify.js → Production endpoint (Cloudflare, stage 6)
 ```
 
@@ -88,15 +90,33 @@ the language-neutral `commonName`.
 
 ## 5. Recognition service
 
-**Chosen: Evren LLM API, `gemma-4-31b`** (`server/providers/evren.js`). Free (until
-1 December 2026, according to the platform). OpenAI-compatible format; the image is sent
-as base64. Five vision models were tested on the same photo: gemma-4-31b wrote the best
-text (~12 s), qwen3-vl-30b was fastest but shallow, and the others were too slow.
+**Chosen (10 November 2026, by measurement): Google Gemini `gemini-3.5-flash-lite`**
+(`server/providers/gemini.js`, free tier, Google's Interactions API).
 
-**Automatic fallback chain** (`server/identify.js`): Evren → Gemini → Claude. If a service
-fails, the next one is tried. Gemini (`gemini-3.5-flash-lite`, free tier, Google's
-Interactions API) is ready for after 1 December and was tested with real photos (~3 s,
-correct species). Claude Opus 5.5 is the paid last resort (`server/providers/claude.js`).
+The first choice, Evren `gemma-4-31b`, was picked from a single test photo for the quality
+of its text. A proper benchmark (`scripts/benchmark/`: 48 research-grade iNaturalist photos,
+24 species common in Türkiye and Europe, run through the real pipeline with Turkish prompts)
+showed it was both slow and inaccurate:
+
+| Model | Right species first | In top 3 | Median time | Notes |
+|---|---|---|---|---|
+| Gemini 3.5 Flash-Lite | 81% | 88% | 11 s | occasional "busy" errors |
+| Evren qwen3-vl-30b | 48% | 56% | 10 s | no failures |
+| Evren gemma-4-31b | 48% | 56% | 52 s | slow; reasoning can't be limited |
+| Evren qwen3.8-flash-next | 31% | 50% | 56 s | many timeouts |
+| Gemini 3.5 Flash / 3.8 Flash | — | — | — | free tier allows only ~20 requests/day |
+| Evren deepseek-v4.1-flash | — | — | — | always over the 80 s limit |
+
+(Some Evren failures came from running four Evren models at once and hitting the account's
+concurrency limit; without them gemma reaches ~60%, which doesn't change the ranking.)
+
+**Automatic fallback chain** (`server/identify.js`): Gemini → Evren (`qwen3-vl-30b`) → Claude.
+If a service fails, the next one is tried. Claude Opus 5.5 is the paid last resort
+(`server/providers/claude.js`). Privacy trade-off: on Google's free tier submitted photos may
+be used to improve Google's products; only the photo is sent, never location or notes.
+
+Gemini's free tier often answers "busy" (503). Two short retries (1.5 s, 3.5 s) before falling back
+raised the whole chain from 65% to **75%** right-first (81% in top 3), median ~9 s, no failures.
 
 Whichever service is used, the reply is requested in the same JSON schema
 (`server/prompt.js`, no edibility field). The phone sends its language, and the
@@ -139,6 +159,12 @@ means changing a single file on the server.
    light haptics, page flipping that follows the finger, sheets that close by dragging down
 3.6 ✅ Renamed to **Mushly**; codebase and docs in English; the app speaks English and
    Turkish (UI and AI-written descriptions follow the phone's language)
+3.7 ✅ Better identification for beginners: names and reference photos grounded in iNaturalist
+   (invented species are dropped, outdated names corrected), a "how to tell" tip per candidate,
+   side-by-side comparison with the user's photo, a recognition benchmark, and Gemini Flash-Lite
+   as the default model (app's right-species-first rate: 48% → 75%, median ~52 s → ~9 s),
+   and "none of these": search species by name (iNaturalist), the AI writes the chosen species' page.
+   Later: improve accuracy on the species it misses, using more varied test photos
 4. ⬜ Points, badges and levels
 5. ⬜ Trip logs and profile screen
 6. ⬜ Final polish: app icon and splash screen, hosting the recognition server,

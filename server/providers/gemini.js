@@ -1,9 +1,10 @@
 /*
-  GOOGLE GEMINI — free fallback recognition service
-  Kicks in automatically if Evren becomes paid, runs out of quota or doesn't reply.
+  GOOGLE GEMINI — default recognition service (free tier)
+  The most accurate option in our benchmark: right species first in 81% of test photos, ~11 s.
 
   Required (.env):  GEMINI_API_KEY=...   (https://aistudio.google.com/apikey)
-  Optional:         GEMINI_MODEL=gemini-3.5-flash-lite   (or the stronger but busier gemini-3.8-flash)
+  Optional:         GEMINI_MODEL=gemini-3.5-flash-lite
+  (gemini-3.5-flash and 3.8-flash allow only ~20 requests per day on the free tier)
 
   Note: on Google's free tier, submitted content may be used to improve Google's
   products. Only the photo is sent; location and field notes never are.
@@ -37,7 +38,7 @@ export async function askGemini({ image, mediaType, prompt, schema, apiKey, mode
 
   let data;
   try {
-    data = await send(request, apiKey);
+    data = await sendWithRetry(request, apiKey);
   } catch (err) {
     // If the schema is too complex for this model, retry once without it
     // (the JSON instruction in the prompt still asks for the right format).
@@ -66,6 +67,23 @@ export async function askGemini({ image, mediaType, prompt, schema, apiKey, mode
       .join('') || data.output_text;
 
   return parseJsonReply(text);
+}
+
+// "Overloaded" (503) spikes on the free tier usually pass within seconds. In our benchmark
+// almost half of the requests hit one, so a couple of short retries keep most photos on
+// Gemini (the most accurate model) instead of falling back.
+const BUSY_RETRY_DELAYS_MS = [1_500, 3_500];
+
+async function sendWithRetry(body, apiKey) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send(body, apiKey);
+    } catch (err) {
+      const delay = BUSY_RETRY_DELAYS_MS[attempt];
+      if (!(err instanceof IdentifyError) || err.code !== 'busy' || delay === undefined) throw err;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 }
 
 async function send(body, apiKey) {
