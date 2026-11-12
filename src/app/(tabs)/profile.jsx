@@ -1,5 +1,5 @@
 /*
-  PROFILE — level, totals, highlights, recent points, badges and the ladder of titles.
+  PROFILE — level, totals, badges, the ladder of titles, highlights and recent points.
   Tapping a badge opens a small sheet: how to earn it, progress, or when it was earned.
 */
 import { useState } from 'react';
@@ -122,6 +122,46 @@ export default function ProfileScreen() {
         <Stat value={stats.points} label={t('profile.points')} />
       </Paper>
 
+      {/* Badges */}
+      <View style={styles.section}>
+        <View style={{ gap: 2 }}>
+          <Text style={type.h2}>{t('profile.badges')}</Text>
+          <Text style={type.small}>
+            {t('profile.badgesCount', { earned: earnedCount, total: BADGES.length })} · {t('profile.badgeHint')}
+          </Text>
+        </View>
+        <View style={styles.badgeGrid}>
+          {BADGES.map((b) => (
+            <Badge
+              key={b.key}
+              badge={b}
+              earnedAt={badges.earned[b.key]}
+              progress={badges.progress[b.key]}
+              onPress={() => setOpenBadge(b)}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Ladder of titles */}
+      <View style={styles.section}>
+        <Text style={type.h2}>{t('profile.levels')}</Text>
+        <Paper style={{ paddingVertical: 10 }}>
+          {LEVELS.map((lvl, i) => {
+            const reached = i <= index;
+            const color = reached ? colors.forest : colors.inkFaint;
+            return (
+              <View key={lvl.key} style={styles.ladderRow}>
+                {i < LEVELS.length - 1 && <View style={styles.ladderLine} />}
+                <View style={[styles.ladderDot, { borderColor: reached ? colors.mustard : color }, reached && styles.ladderDotOn]} />
+                <Text style={[styles.ladderTitle, { color }]}>{levelTitle(lvl)}</Text>
+                <Text style={[styles.ladderPts, { color }]}>{t('common.points', { count: lvl.minPoints })}</Text>
+              </View>
+            );
+          })}
+        </Paper>
+      </View>
+
       {/* Highlights */}
       {(highlights.mostSeen || highlights.rarest || highlights.longestTrip) && (
         <View style={styles.section}>
@@ -177,46 +217,6 @@ export default function ProfileScreen() {
               );
             })
           )}
-        </Paper>
-      </View>
-
-      {/* Badges */}
-      <View style={styles.section}>
-        <View style={{ gap: 2 }}>
-          <Text style={type.h2}>{t('profile.badges')}</Text>
-          <Text style={type.small}>
-            {t('profile.badgesCount', { earned: earnedCount, total: BADGES.length })} · {t('profile.badgeHint')}
-          </Text>
-        </View>
-        <View style={styles.badgeGrid}>
-          {BADGES.map((b) => (
-            <Badge
-              key={b.key}
-              badge={b}
-              earnedAt={badges.earned[b.key]}
-              progress={badges.progress[b.key]}
-              onPress={() => setOpenBadge(b)}
-            />
-          ))}
-        </View>
-      </View>
-
-      {/* Ladder of titles */}
-      <View style={styles.section}>
-        <Text style={type.h2}>{t('profile.levels')}</Text>
-        <Paper style={{ paddingVertical: 10 }}>
-          {LEVELS.map((lvl, i) => {
-            const reached = i <= index;
-            const color = reached ? colors.forest : colors.inkFaint;
-            return (
-              <View key={lvl.key} style={styles.ladderRow}>
-                {i < LEVELS.length - 1 && <View style={styles.ladderLine} />}
-                <View style={[styles.ladderDot, { borderColor: reached ? colors.mustard : color }, reached && styles.ladderDotOn]} />
-                <Text style={[styles.ladderTitle, { color }]}>{levelTitle(lvl)}</Text>
-                <Text style={[styles.ladderPts, { color }]}>{t('common.points', { count: lvl.minPoints })}</Text>
-              </View>
-            );
-          })}
         </Paper>
       </View>
 
