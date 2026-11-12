@@ -35,7 +35,7 @@ Photograph a mushroom, get the three most likely species, and watch a hand-drawn
 - **Drafts** — not sure? Save the find as a draft and pick the species later.
 - **Works offline** — photos taken without a connection wait in a queue and are identified automatically once you're back online.
 - **"?" pages** — faded pages with hints for species you haven't found yet.
-- **Points, levels and badges** — the groundwork is in place; the rules arrive in stage 4.
+- **Points, titles and badges** — new species earn points by rarity (10 / 25 / 50), repeat finds a small bonus. Points unlock five titles, from Novice Explorer to Master Mycologist. Ten badges reward habits like a rainy-day find or 5 species in one day; the profile shows progress towards each, and the celebration card shows what a find unlocked.
 - **Bilingual** — the interface and the AI-written descriptions follow the phone's language (English or Turkish).
 
 ## Safety by design
@@ -150,7 +150,7 @@ Mushly is built in stages; see [docs/ROADMAP.md](docs/ROADMAP.md) for details an
 - [x] Collection book with page flipping
 - [x] Native app with React Native (Expo)
 - [x] English and Turkish
-- [ ] Points, badges and levels
+- [x] Points, badges and levels
 - [ ] Trips and profile
 - [ ] App icon, splash screen, hosted recognition server and installable builds
 

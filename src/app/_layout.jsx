@@ -23,6 +23,7 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 import { getDb } from '../data/db';
+import { checkBadges } from '../services/badges';
 import { startPendingWatcher } from '../services/pendingQueue';
 import { t } from '../i18n';
 import { colors } from '../theme';
@@ -47,6 +48,8 @@ export default function RootLayout() {
     getDb()
       .then(async () => {
         setDbState('ready');
+        // Journals from before badges existed get the ones they already deserve
+        checkBadges().catch((err) => console.warn('[badges]', err));
         stopWatcher = await startPendingWatcher();
       })
       .catch((err) => {

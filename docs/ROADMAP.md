@@ -62,6 +62,7 @@ src/
     recognizer.js       → Sends the photo to the server
     photos.js           → Resizes and stores photos
     collection.js, pendingQueue.js → Saving finds and the offline queue
+    badges.js           → Badge rules (progress and awarding)
 server/
   prompt.js             → Prompt and response schema (per language)
   identify.js, providers/ → Gemini → Evren → Claude fallback chain
@@ -165,7 +166,11 @@ means changing a single file on the server.
    as the default model (app's right-species-first rate: 48% → 75%, median ~52 s → ~9 s),
    and "none of these": search species by name (iNaturalist), the AI writes the chosen species' page.
    Later: improve accuracy on the species it misses, using more varied test photos
-4. ⬜ Points, badges and levels
+4. ✅ Points, badges and levels: badge rules (`src/services/badges.js`) are checked after every
+   save and once when the app opens (older journals get the badges they already deserve);
+   earned badges are kept even if a find is deleted later. The celebration card shows new
+   badges and a new title in a full-screen moment (rays, a burst of sparkles, the seal springing in), then lists them; the profile shows earned badges, progress ("3 / 5") and a sheet
+   with how to earn each one. "Trail Friend" (5 trips) becomes reachable with trips in stage 5
 5. ⬜ Trip logs and profile screen
 6. ⬜ Final polish: app icon and splash screen, hosting the recognition server,
    installable builds (Android/iOS)

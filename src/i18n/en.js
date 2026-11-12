@@ -138,6 +138,18 @@ export default {
     draftText: 'Your photo and notes are waiting in the drafts section of your journal.',
     toDrafts: 'Go to drafts',
     openPage: 'Open its page',
+    newBadge: 'New badge',
+    newLevel: 'New title',
+    newLevelText: "You're now a {title}.",
+  },
+
+  reward: {
+    badgeEyebrow: 'New badge earned',
+    levelEyebrow: 'New title unlocked',
+    levelText: 'Your finds made you a {title}. Keep exploring!',
+    count: '{index} of {total}',
+    next: 'Next',
+    done: 'Wonderful!',
   },
 
   notes: {
@@ -280,6 +292,12 @@ export default {
     badges: 'Badges',
     levels: 'Titles',
     notEarned: ' (not earned yet)',
+    badgesCount: '{earned} of {total} earned',
+    badgeHint: 'Tap a badge to see how to earn it.',
+    earnedOn: 'Earned on {date}',
+    progress: '{value} of {target}',
+    stillLocked: 'Not earned yet',
+    tripsLater: 'Trips arrive in a coming update.',
   },
 
   levels: {
@@ -291,16 +309,16 @@ export default {
   },
 
   badges: {
-    firstFind: { title: 'First Find', description: 'You added your first species to the book.' },
-    species5: { title: '5 Species', description: 'You discovered 5 different species.' },
-    species10: { title: '10 Species', description: 'You discovered 10 different species.' },
-    species25: { title: '25 Species', description: 'You discovered 25 different species.' },
-    autumn: { title: 'Autumn Explorer', description: 'You found 10 species in a single autumn.' },
-    busyDay: { title: 'Bountiful Day', description: 'You found 5 different species in one day.' },
-    afterRain: { title: 'After-Rain Seeker', description: 'You recorded a species on a rainy day.' },
-    sharpEye: { title: 'Sharp Eye', description: 'You found your first "Very rare" species.' },
-    trailFriend: { title: 'Trail Friend', description: 'You completed 5 trips.' },
-    oldFriend: { title: 'Old Acquaintance', description: 'You saw the same species 5 times.' },
+    firstFind: { title: 'First Find', description: 'You added your first species to the book.', goal: 'Add your first species to the book.' },
+    species5: { title: '5 Species', description: 'You discovered 5 different species.', goal: 'Discover 5 different species.' },
+    species10: { title: '10 Species', description: 'You discovered 10 different species.', goal: 'Discover 10 different species.' },
+    species25: { title: '25 Species', description: 'You discovered 25 different species.', goal: 'Discover 25 different species.' },
+    autumn: { title: 'Autumn Explorer', description: 'You found 10 species in a single autumn.', goal: 'Find 10 different species in a single autumn (September–November).' },
+    busyDay: { title: 'Bountiful Day', description: 'You found 5 different species in one day.', goal: 'Find 5 different species on the same day.' },
+    afterRain: { title: 'After-Rain Seeker', description: 'You recorded a species on a rainy day.', goal: 'Save a find with the weather set to "Rainy" or "After rain".' },
+    sharpEye: { title: 'Sharp Eye', description: 'You found your first "Very rare" species.', goal: 'Find a species marked "Very rare".' },
+    trailFriend: { title: 'Trail Friend', description: 'You completed 5 trips.', goal: 'Complete 5 trips.' },
+    oldFriend: { title: 'Old Acquaintance', description: 'You saw the same species 5 times.', goal: 'See the same species 5 times.' },
   },
 
   // Recognition errors, by the code the server or the app returns

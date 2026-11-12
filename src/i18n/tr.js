@@ -131,6 +131,18 @@ export default {
     draftText: 'Fotoğraf ve notların defterin taslaklar bölümünde duruyor.',
     toDrafts: 'Taslaklara git',
     openPage: 'Sayfasını aç',
+    newBadge: 'Yeni rozet',
+    newLevel: 'Yeni unvan',
+    newLevelText: 'Artık bir {title} oldun.',
+  },
+
+  reward: {
+    badgeEyebrow: 'Yeni rozet kazandın',
+    levelEyebrow: 'Yeni unvan açıldı',
+    levelText: 'Buluşların seni bir {title} yaptı. Keşfetmeye devam!',
+    count: '{index} / {total}',
+    next: 'Sıradaki',
+    done: 'Harika!',
   },
 
   notes: {
@@ -271,6 +283,12 @@ export default {
     badges: 'Rozetler',
     levels: 'Unvanlar',
     notEarned: ' (henüz kazanılmadı)',
+    badgesCount: '{total} rozetten {earned} tanesi kazanıldı',
+    badgeHint: 'Nasıl kazanılacağını görmek için bir rozete dokun.',
+    earnedOn: '{date} tarihinde kazanıldı',
+    progress: '{value} / {target}',
+    stillLocked: 'Henüz kazanılmadı',
+    tripsLater: 'Geziler yakında gelecek bir güncellemeyle eklenecek.',
   },
 
   levels: {
@@ -282,16 +300,16 @@ export default {
   },
 
   badges: {
-    firstFind: { title: 'İlk Mantarım', description: 'Kitabına ilk türü ekledin.' },
-    species5: { title: '5 Tür', description: '5 farklı tür keşfettin.' },
-    species10: { title: '10 Tür', description: '10 farklı tür keşfettin.' },
-    species25: { title: '25 Tür', description: '25 farklı tür keşfettin.' },
-    autumn: { title: 'Sonbahar Kâşifi', description: 'Bir sonbaharda 10 tür buldun.' },
-    busyDay: { title: 'Verimli Gün', description: 'Aynı gün 5 farklı tür buldun.' },
-    afterRain: { title: 'Yağmur Sonrası Avcısı', description: 'Yağmurlu bir günde bir tür kaydettin.' },
-    sharpEye: { title: 'Gözü Keskin', description: 'İlk "Çok Nadir" türünü buldun.' },
-    trailFriend: { title: 'Patika Dostu', description: '5 gezi tamamladın.' },
-    oldFriend: { title: 'Eski Tanıdık', description: 'Aynı türü 5 kez gördün.' },
+    firstFind: { title: 'İlk Mantarım', description: 'Kitabına ilk türü ekledin.', goal: 'Kitabına ilk türü ekle.' },
+    species5: { title: '5 Tür', description: '5 farklı tür keşfettin.', goal: '5 farklı tür keşfet.' },
+    species10: { title: '10 Tür', description: '10 farklı tür keşfettin.', goal: '10 farklı tür keşfet.' },
+    species25: { title: '25 Tür', description: '25 farklı tür keşfettin.', goal: '25 farklı tür keşfet.' },
+    autumn: { title: 'Sonbahar Kâşifi', description: 'Bir sonbaharda 10 tür buldun.', goal: 'Tek bir sonbaharda (Eylül–Kasım) 10 farklı tür bul.' },
+    busyDay: { title: 'Verimli Gün', description: 'Aynı gün 5 farklı tür buldun.', goal: 'Aynı gün 5 farklı tür bul.' },
+    afterRain: { title: 'Yağmur Sonrası Avcısı', description: 'Yağmurlu bir günde bir tür kaydettin.', goal: 'Hava durumunu "Yağmurlu" ya da "Yağmur sonrası" seçerek bir buluş kaydet.' },
+    sharpEye: { title: 'Gözü Keskin', description: 'İlk "Çok Nadir" türünü buldun.', goal: '"Çok Nadir" olarak işaretlenmiş bir tür bul.' },
+    trailFriend: { title: 'Patika Dostu', description: '5 gezi tamamladın.', goal: '5 gezi tamamla.' },
+    oldFriend: { title: 'Eski Tanıdık', description: 'Aynı türü 5 kez gördün.', goal: 'Aynı türü 5 kez gör.' },
   },
 
   // Recognition errors, by the code the server or the app returns

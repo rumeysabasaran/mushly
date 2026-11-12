@@ -1,6 +1,6 @@
 /*
   GAMIFICATION — points, levels and badges.
-  The rules themselves arrive in stage 4; for now this is the list of what exists.
+  The rules that award badges are in services/badges.js.
   Display names live in the i18n dictionaries (`rarity.*`, `levels.*`, `badges.*`).
 */
 import { t } from '../i18n';
@@ -45,8 +45,14 @@ export const BADGES = [
   { key: 'oldFriend', icon: 'eye' },
 ];
 
+/** A badge's texts: title, description (once earned) and goal (how to earn it) */
 export function badgeText(badge) {
-  return { title: t(`badges.${badge.key}.title`), description: t(`badges.${badge.key}.description`) };
+  const key = `badges.${badge.key}`;
+  return { title: t(`${key}.title`), description: t(`${key}.description`), goal: t(`${key}.goal`) };
+}
+
+export function badgeByKey(key) {
+  return BADGES.find((b) => b.key === key) ?? null;
 }
 
 /** Returns the current level for a point total and the progress towards the next one. */

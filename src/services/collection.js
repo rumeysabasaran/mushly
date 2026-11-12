@@ -10,7 +10,8 @@
   find earns the repeat bonus. This is recalculated when a find is deleted or re-dated.
 */
 import { tables, transaction, withMeta, newId } from '../data/db.js';
-import { RARITY, REPEAT_BONUS } from '../data/gamification.js';
+import { RARITY, REPEAT_BONUS, levelFor } from '../data/gamification.js';
+import { checkBadges } from './badges';
 import { language } from '../i18n';
 import { commonNameOf, lacksTurkishLetters, pageTexts } from './safety.js';
 import { storePhotoFiles, deletePhotoFiles } from './photos';
@@ -117,6 +118,32 @@ async function refreshSpecies(speciesId) {
   });
 }
 
+/** The total score: the sum of every point entry */
+export async function totalPoints() {
+  const rows = await Points.all();
+  return rows.reduce((sum, row) => sum + (row.amount || 0), 0);
+}
+
+/**
+ * Runs a save and works out what it unlocked: badges earned just now and, if the score
+ * crossed a level threshold, the new level. Added to the result as
+ * { newBadges: ['firstFind', …], newLevel: 'wanderer' | null }.
+ */
+async function withRewards(save) {
+  const before = levelFor(await totalPoints()).current;
+  const result = await save();
+  let newBadges = [];
+  let newLevel = null;
+  try {
+    newBadges = await checkBadges();
+    const after = levelFor(await totalPoints()).current;
+    if (after.minPoints > before.minPoints) newLevel = after.key;
+  } catch (err) {
+    console.warn('[rewards]', err); // the find is saved either way
+  }
+  return { ...result, newBadges, newLevel };
+}
+
 /**
  * Saves a find.
  * @param {object} p
@@ -125,12 +152,12 @@ async function refreshSpecies(speciesId) {
  * @param {object[]} p.candidates     Every candidate recognition suggested (kept for drafts)
  * @param {object} p.notes            Field notes { weather, companions, note, location }
  * @param {number} p.foundAt          When it was found (ms)
- * @returns {{type:'new'|'repeat'|'draft', species, sighting, pointsEarned}}
+ * @returns {{type:'new'|'repeat'|'draft', species, sighting, pointsEarned, newBadges, newLevel}}
  */
 export async function recordSighting({ photoId, candidate = null, candidates = [], notes = {}, foundAt = Date.now() }) {
   const activeTrip = (await Trips.where('endedAt', null))[0];
 
-  return transaction(async () => {
+  return withRewards(() => transaction(async () => {
     const attached = candidate ? await attachToSpecies(candidate, photoId, foundAt) : null;
 
     const sighting = withMeta({
@@ -153,12 +180,12 @@ export async function recordSighting({ photoId, candidate = null, candidates = [
       sighting,
       pointsEarned: attached?.pointsEarned ?? 0,
     };
-  });
+  }));
 }
 
 /** Picks the species of a draft later on. Returns points and a celebration like a normal save. */
 export async function resolveDraft(sightingId, candidate) {
-  return transaction(async () => {
+  return withRewards(() => transaction(async () => {
     const sighting = await Sightings.get(sightingId);
     if (!sighting || sighting.speciesId) throw new Error('Draft not found.');
 
@@ -172,7 +199,7 @@ export async function resolveDraft(sightingId, candidate) {
     await recomputeSpeciesPoints(attached.species.id);
 
     return { type: attached.isNew ? 'new' : 'repeat', species: attached.species, pointsEarned: attached.pointsEarned };
-  });
+  }));
 }
 
 /** Updates a find's field notes and date. */

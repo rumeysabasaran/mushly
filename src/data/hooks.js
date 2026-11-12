@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { tables, subscribe } from './db.js';
 import { photoUri } from '../services/photos';
 import { needsRewrite, rewriteSpeciesPage } from '../services/collection';
+import { badgeProgress } from '../services/badges';
 
 /**
  * Runs the query, and runs it again whenever the database changes.
@@ -143,4 +144,19 @@ export function useRewriteForeignPages(species) {
       rewriting = false;
     });
   }, [species]);
+}
+
+/**
+ * Badges for the profile: when each was earned ({ [key]: earnedAt }) and how far along
+ * the user is for the others ({ [key]: { value, target } }).
+ */
+export function useBadges() {
+  return useLiveQuery(
+    async () => {
+      const [rows, progress] = await Promise.all([tables.badges.all(), badgeProgress()]);
+      return { earned: Object.fromEntries(rows.map((b) => [b.id, b.earnedAt])), progress };
+    },
+    [],
+    { earned: {}, progress: {} }
+  );
 }
