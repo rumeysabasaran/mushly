@@ -45,6 +45,7 @@ src/
     _layout.jsx         → Fonts, database, root layout
     (tabs)/             → Tab screens: index (Home), book, scan, trips, profile
     pending.jsx         → Photos taken offline
+    trip/[id].jsx       → A trip's memory page
     api/identify+api.js → Recognition endpoint on the dev server
   theme.js              → Colors, fonts, sizes, shadows (one place)
   i18n/                 → en.js, tr.js and the t() helper
@@ -52,7 +53,8 @@ src/
     layout/             → Tab bar and camera button
     ui/                 → Paper card, button, chip, ornaments, icons, sheet
     book/               → Book, cover, pages, page flipping
-    scan/               → Identify flow, candidates, field notes form, celebration
+    scan/               → Identify flow, candidates, field notes form, celebration, reward overlay
+    trips/              → Trip cards and the start/rename sheets
   data/
     db.js               → SQLite tables and change notifications
     hooks.js            → Live queries the screens read from
@@ -63,6 +65,7 @@ src/
     photos.js           → Resizes and stores photos
     collection.js, pendingQueue.js → Saving finds and the offline queue
     badges.js           → Badge rules (progress and awarding)
+    trips.js, location.js → Trips (start/end, matching finds, summaries) and one-off location
 server/
   prompt.js             → Prompt and response schema (per language)
   identify.js, providers/ → Gemini → Evren → Claude fallback chain
@@ -171,6 +174,10 @@ means changing a single file on the server.
    earned badges are kept even if a find is deleted later. The celebration card shows new
    badges and a new title in a full-screen moment (rays, a burst of sparkles, the seal springing in), then lists them; the profile shows earned badges, progress ("3 / 5") and a sheet
    with how to earn each one. "Trail Friend" (5 trips) becomes reachable with trips in stage 5
-5. ⬜ Trip logs and profile screen
+5. ✅ Trip logs and profile screen: start a walk (optional name and starting place), a live
+   card while it runs (trips, home and scan screens), finds matched to a trip by when they were
+   found, and a trip memory page when it ends (duration, finds, first-time species, points,
+   weather, polaroids; rename or delete — deleting keeps the finds). The profile adds "exploring
+   since", total finds, highlights (rarest, most seen, longest trip) and recent points
 6. ⬜ Final polish: app icon and splash screen, hosting the recognition server,
    installable builds (Android/iOS)

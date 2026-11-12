@@ -8,6 +8,7 @@ import { tables, subscribe } from './db.js';
 import { photoUri } from '../services/photos';
 import { needsRewrite, rewriteSpeciesPage } from '../services/collection';
 import { badgeProgress } from '../services/badges';
+import { tripSummary } from '../services/trips';
 
 /**
  * Runs the query, and runs it again whenever the database changes.
@@ -158,5 +159,95 @@ export function useBadges() {
     },
     [],
     { earned: {}, progress: {} }
+  );
+}
+
+/** Everything needed to summarize trips: all trips (newest first) with their finds and numbers */
+async function loadTrips() {
+  const [trips, sightings, species, points] = await Promise.all([
+    tables.trips.all({ orderBy: 'startedAt', desc: true }),
+    tables.sightings.all(),
+    tables.species.all(),
+    tables.points.all(),
+  ]);
+  const speciesById = Object.fromEntries(species.map((sp) => [sp.id, sp]));
+  return trips.map((trip) => {
+    const finds = sightings
+      .filter((s) => s.tripId === trip.id)
+      .sort((a, b) => a.foundAt - b.foundAt)
+      .map((s) => ({ ...s, species: speciesById[s.speciesId] ?? null }));
+    return { ...trip, finds, summary: tripSummary(trip, finds, sightings, points) };
+  });
+}
+
+/** The running trip with its finds, or null (undefined while loading) */
+export function useActiveTrip() {
+  return useLiveQuery(async () => (await loadTrips()).find((trip) => trip.endedAt == null) ?? null, []);
+}
+
+/** Finished trips, newest first, each with its finds and summary */
+export function useTrips() {
+  return useLiveQuery(async () => (await loadTrips()).filter((trip) => trip.endedAt != null), [], []);
+}
+
+/** One trip with its finds and summary; null if it doesn't exist (undefined while loading) */
+export function useTrip(id) {
+  return useLiveQuery(async () => (await loadTrips()).find((trip) => trip.id === id) ?? null, [id]);
+}
+
+/** Re-renders every `ms` milliseconds, for live clocks */
+export function useTicker(ms = 30_000) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(timer);
+  }, [ms]);
+  return now;
+}
+
+const RARITY_ORDER = { veryRare: 3, rare: 2, common: 1 };
+
+/**
+ * The profile's highlights: since when the user explores, how many finds, the most seen
+ * and rarest species, the longest trip, and the latest point entries.
+ */
+export function useProfileHighlights() {
+  return useLiveQuery(
+    async () => {
+      const [species, sightings, points, trips] = await Promise.all([
+        tables.species.all(),
+        tables.sightings.all(),
+        tables.points.all(),
+        tables.trips.all(),
+      ]);
+      const speciesById = Object.fromEntries(species.map((sp) => [sp.id, sp]));
+      const pick = (list, better) => list.reduce((best, x) => (best == null || better(x, best) ? x : best), null);
+
+      const mostSeen = pick(species, (a, b) => (a.seenCount || 0) > (b.seenCount || 0));
+      const rarest = pick(species, (a, b) => {
+        const ra = RARITY_ORDER[a.rarity] ?? 0;
+        const rb = RARITY_ORDER[b.rarity] ?? 0;
+        return ra > rb || (ra === rb && a.firstFoundAt < b.firstFoundAt);
+      });
+      const finished = trips.filter((trip) => trip.endedAt);
+      const longestTrip = pick(finished, (a, b) => a.endedAt - a.startedAt > b.endedAt - b.startedAt);
+      // Point rows are rebuilt when finds change, so they're ordered by their find's date
+      const foundAt = Object.fromEntries(sightings.map((s) => [s.id, s.foundAt]));
+      const recentPoints = points
+        .map((p) => ({ ...p, foundAt: foundAt[p.sightingId] ?? 0, species: speciesById[p.speciesId] ?? null }))
+        .sort((a, b) => b.foundAt - a.foundAt)
+        .slice(0, 5);
+
+      return {
+        since: species.length ? Math.min(...species.map((sp) => sp.firstFoundAt)) : null,
+        findCount: sightings.length,
+        mostSeen: mostSeen && (mostSeen.seenCount || 0) > 1 ? mostSeen : null,
+        rarest,
+        longestTrip,
+        recentPoints,
+      };
+    },
+    [],
+    { since: null, findCount: 0, mostSeen: null, rarest: null, longestTrip: null, recentPoints: [] }
   );
 }

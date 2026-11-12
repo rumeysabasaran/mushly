@@ -14,7 +14,8 @@ import Disclaimer from '../../components/ui/Disclaimer';
 import BookCover from '../../components/book/BookCover';
 import { Divider, MushroomSketch } from '../../components/ui/Ornaments';
 import { Eyebrow, type } from '../../components/ui/Typography';
-import { useStats, useRecentSightings, usePhotoUri } from '../../data/hooks';
+import { ActiveTripCard } from '../../components/trips/TripCards';
+import { useActiveTrip, useStats, useRecentSightings, usePhotoUri } from '../../data/hooks';
 import { levelFor, levelTitle } from '../../data/gamification';
 import { formatDate, weatherLabel } from '../../data/fieldNotes';
 import { displayName } from '../../services/safety';
@@ -53,6 +54,7 @@ function RecentItem({ sighting }) {
 /** Greeting based on the time of day */
 function greeting() {
   const h = new Date().getHours();
+  if (h < 5) return t('greeting.evening'); // after midnight it's still "evening", not morning
   if (h < 11) return t('greeting.morning');
   if (h < 18) return t('greeting.day');
   return t('greeting.evening');
@@ -61,6 +63,7 @@ function greeting() {
 export default function HomeScreen() {
   const stats = useStats();
   const recent = useRecentSightings(5);
+  const activeTrip = useActiveTrip();
   const { current } = levelFor(stats.points);
 
   return (
@@ -81,7 +84,10 @@ export default function HomeScreen() {
         </View>
       </Paper>
 
-      {/* Start a trip */}
+      {/* The walk in progress, or a nudge to start one */}
+      {activeTrip ? (
+        <ActiveTripCard trip={activeTrip} compact />
+      ) : (
       <Paper style={styles.trip}>
         <View>
           <Eyebrow>{t('home.tripEyebrow')}</Eyebrow>
@@ -90,6 +96,7 @@ export default function HomeScreen() {
         </View>
         <Button variant="ghost" icon="trail" title={t('home.tripButton')} onPress={() => router.navigate('/trips')} />
       </Paper>
+      )}
 
       <Divider />
 

@@ -81,6 +81,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="pending" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="trip/[id]" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </GestureHandlerRootView>
   );

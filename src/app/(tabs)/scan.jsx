@@ -24,7 +24,8 @@ import IdentifyFlow from '../../components/scan/IdentifyFlow';
 import Appear, { POLAROID_IN } from '../../components/ui/Appear';
 import AnalyzingDots from '../../components/scan/AnalyzingDots';
 import { type } from '../../components/ui/Typography';
-import { usePhotoUri, useStats } from '../../data/hooks';
+import { useActiveTrip, usePhotoUri, useStats } from '../../data/hooks';
+import { tripName } from '../../data/fieldNotes';
 import { tables } from '../../data/db';
 import { identify, OfflineError } from '../../services/recognizer';
 import { savePhoto, deletePhoto } from '../../services/collection';
@@ -37,6 +38,7 @@ const PICKER_OPTIONS = { mediaTypes: ['images'], quality: 0.9, exif: false };
 export default function ScanScreen() {
   const [state, setState] = useState({ step: 'pick' });
   const { pendingCount } = useStats();
+  const activeTrip = useActiveTrip();
   const photoUri = usePhotoUri(state.photoId, 'full');
   const scrollRef = useRef(null);
   const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -110,6 +112,13 @@ export default function ScanScreen() {
             <Text style={[type.muted, type.center]}>{t('scan.frameHint')}</Text>
           </Paper>
 
+          {!!activeTrip && (
+            <Paper style={styles.tripBanner} onPress={() => router.navigate('/trips')}>
+              <Icon name="trail" size={20} color={colors.moss} />
+              <Text style={[type.small, { flex: 1, color: colors.forest }]}>{t('trips.scanBanner', { name: tripName(activeTrip) })}</Text>
+            </Paper>
+          )}
+
           <View style={styles.actions}>
             <Button block icon="camera" title={t('scan.takePhoto')} onPress={() => pick('camera')} />
             <Button block variant="ghost" icon="gallery" title={t('scan.fromGallery')} onPress={() => pick('library')} />
@@ -177,6 +186,7 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
+  tripBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderColor: colors.moss, borderWidth: 1.5 },
   stack: { gap: 18 },
   frame: { aspectRatio: 4 / 3, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 },
   actions: { gap: 10 },

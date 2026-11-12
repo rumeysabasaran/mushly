@@ -36,3 +36,21 @@ export function formatDate(time, withYear = true) {
     ...(withYear ? { year: 'numeric' } : {}),
   });
 }
+
+/** "14:05" */
+export function formatTime(time) {
+  return new Date(time).toLocaleTimeString(localeTag, { hour: '2-digit', minute: '2-digit' });
+}
+
+/** A length of time: "1 h 20 min" / "1 sa 20 dk", or just minutes under an hour */
+export function formatDuration(ms) {
+  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return h > 0 ? t('duration.hm', { h, m }) : t('duration.m', { m });
+}
+
+/** A trip's name, or "Walk on 13 November" when it has none */
+export function tripName(trip) {
+  return trip?.name || t('trips.untitled', { date: formatDate(trip?.startedAt ?? Date.now(), false) });
+}

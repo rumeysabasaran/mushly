@@ -1,5 +1,5 @@
 /*
-  PROFILE — level, totals, badges and the ladder of titles.
+  PROFILE — level, totals, highlights, recent points, badges and the ladder of titles.
   Tapping a badge opens a small sheet: how to earn it, progress, or when it was earned.
 */
 import { useState } from 'react';
@@ -9,12 +9,14 @@ import PageHeader from '../../components/ui/PageHeader';
 import Paper from '../../components/ui/Paper';
 import Sheet from '../../components/ui/Sheet';
 import BadgeSeal from '../../components/ui/BadgeSeal';
+import Icon from '../../components/ui/Icon';
 import ProgressBar from '../../components/ui/ProgressBar';
 import Disclaimer from '../../components/ui/Disclaimer';
 import { type } from '../../components/ui/Typography';
-import { useBadges, useStats } from '../../data/hooks';
-import { formatDate } from '../../data/fieldNotes';
-import { BADGES, LEVELS, badgeText, levelFor, levelTitle } from '../../data/gamification';
+import { useBadges, useProfileHighlights, useStats } from '../../data/hooks';
+import { formatDate, formatDuration, tripName } from '../../data/fieldNotes';
+import { displayName } from '../../services/safety';
+import { BADGES, LEVELS, badgeText, levelFor, levelTitle, rarityLabel } from '../../data/gamification';
 import { t } from '../../i18n';
 import { colors, fonts } from '../../theme';
 
@@ -48,6 +50,19 @@ function Badge({ badge, earnedAt, progress, onPress }) {
   );
 }
 
+/** One line in "Highlights": a label on the left, the value on the right */
+function Highlight({ icon, label, value }) {
+  return (
+    <View style={styles.highlight}>
+      <Icon name={icon} size={18} color={colors.moss} />
+      <Text style={styles.highlightLabel}>{label}</Text>
+      <Text style={styles.highlightValue} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 /** The sheet that opens when a badge is tapped */
 function BadgeSheet({ badge, earnedAt, progress, onClose }) {
   const { title, description, goal } = badgeText(badge);
@@ -67,7 +82,6 @@ function BadgeSheet({ badge, earnedAt, progress, onClose }) {
               <Text style={type.small}>{t('profile.progress', { value, target: progress?.target ?? 1 })}</Text>
             </View>
             <ProgressBar value={value / (progress?.target ?? 1)} />
-            {badge.key === 'trailFriend' && <Text style={[type.small, type.center]}>{t('profile.tripsLater')}</Text>}
           </View>
         )}
       </View>
@@ -78,13 +92,18 @@ function BadgeSheet({ badge, earnedAt, progress, onClose }) {
 export default function ProfileScreen() {
   const stats = useStats();
   const badges = useBadges();
+  const highlights = useProfileHighlights();
   const [openBadge, setOpenBadge] = useState(null);
   const { current, next, index, progress } = levelFor(stats.points);
   const earnedCount = BADGES.filter((b) => badges.earned[b.key]).length;
 
   return (
     <Screen>
-      <PageHeader eyebrow={t('profile.eyebrow')} title={levelTitle(current)} />
+      <PageHeader
+        eyebrow={t('profile.eyebrow')}
+        title={levelTitle(current)}
+        subtitle={highlights.since ? t('profile.since', { date: formatDate(highlights.since) }) : undefined}
+      />
 
       {/* Level progress */}
       <Paper style={{ gap: 10 }}>
@@ -98,9 +117,68 @@ export default function ProfileScreen() {
       {/* Totals */}
       <Paper style={styles.stats}>
         <Stat value={stats.speciesCount} label={t('profile.species')} />
-        <Stat value={stats.points} label={t('profile.points')} />
+        <Stat value={highlights.findCount} label={t('profile.finds')} />
         <Stat value={stats.tripCount} label={t('profile.trips')} />
+        <Stat value={stats.points} label={t('profile.points')} />
       </Paper>
+
+      {/* Highlights */}
+      {(highlights.mostSeen || highlights.rarest || highlights.longestTrip) && (
+        <View style={styles.section}>
+          <Text style={type.h2}>{t('profile.highlights')}</Text>
+          <Paper style={{ paddingVertical: 6 }}>
+            {highlights.rarest && (
+              <Highlight
+                icon="sparkle"
+                label={t('profile.rarest')}
+                value={`${displayName(highlights.rarest)} · ${rarityLabel(highlights.rarest.rarity)}`}
+              />
+            )}
+            {highlights.mostSeen && (
+              <Highlight
+                icon="eye"
+                label={t('profile.mostSeen')}
+                value={t('profile.mostSeenValue', { name: displayName(highlights.mostSeen), count: highlights.mostSeen.seenCount })}
+              />
+            )}
+            {highlights.longestTrip && (
+              <Highlight
+                icon="trail"
+                label={t('profile.longestTrip')}
+                value={t('profile.longestTripValue', {
+                  name: tripName(highlights.longestTrip),
+                  duration: formatDuration(highlights.longestTrip.endedAt - highlights.longestTrip.startedAt),
+                })}
+              />
+            )}
+          </Paper>
+        </View>
+      )}
+
+      {/* Recent points */}
+      <View style={styles.section}>
+        <Text style={type.h2}>{t('profile.recentPoints')}</Text>
+        <Paper style={{ paddingVertical: 6 }}>
+          {highlights.recentPoints.length === 0 ? (
+            <Text style={[type.small, { paddingVertical: 10 }]}>{t('profile.noPoints')}</Text>
+          ) : (
+            highlights.recentPoints.map((p) => {
+              const name = p.species ? displayName(p.species) : '';
+              return (
+                <View key={p.id} style={styles.pointRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pointReason} numberOfLines={1}>
+                      {p.reason === 'new-species' ? t('profile.reasonNew', { name }) : t('profile.reasonRepeat', { name })}
+                    </Text>
+                    {!!p.foundAt && <Text style={type.small}>{formatDate(p.foundAt)}</Text>}
+                  </View>
+                  <Text style={styles.pointAmount}>{t('common.pointsEarned', { count: p.amount })}</Text>
+                </View>
+              );
+            })
+          )}
+        </Paper>
+      </View>
 
       {/* Badges */}
       <View style={styles.section}>
@@ -168,6 +246,12 @@ const styles = StyleSheet.create({
   badgeTitle: { fontFamily: fonts.sansBold, fontSize: 12.5, lineHeight: 16, color: colors.ink, textAlign: 'center' },
   badgeProgress: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.moss, marginTop: -3 },
   sheetBody: { alignItems: 'center', gap: 14, paddingVertical: 8 },
+  highlight: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  highlightLabel: { fontFamily: fonts.sans, fontSize: 14, color: colors.inkSoft, width: 118 },
+  highlightValue: { flex: 1, fontFamily: fonts.sansBold, fontSize: 14.5, color: colors.forest, textAlign: 'right' },
+  pointRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
+  pointReason: { fontFamily: fonts.sansBold, fontSize: 14.5, color: colors.ink },
+  pointAmount: { fontFamily: fonts.sansHeavy, fontSize: 14, color: colors.moss },
   sheetProgress: { alignSelf: 'stretch', gap: 8 },
   ladderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
   // thin line connecting the dots

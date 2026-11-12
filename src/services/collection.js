@@ -12,12 +12,13 @@
 import { tables, transaction, withMeta, newId } from '../data/db.js';
 import { RARITY, REPEAT_BONUS, levelFor } from '../data/gamification.js';
 import { checkBadges } from './badges';
+import { tripFor } from './trips';
 import { language } from '../i18n';
 import { commonNameOf, lacksTurkishLetters, pageTexts } from './safety.js';
 import { storePhotoFiles, deletePhotoFiles } from './photos';
 import { describeSpecies } from './recognizer';
 
-const { species: Species, sightings: Sightings, photos: Photos, points: Points, trips: Trips } = tables;
+const { species: Species, sightings: Sightings, photos: Photos, points: Points } = tables;
 
 /** Unique key from a Latin name: "Trametes  Versicolor" → "trametes versicolor" */
 export function speciesKeyOf(latinName) {
@@ -155,7 +156,7 @@ async function withRewards(save) {
  * @returns {{type:'new'|'repeat'|'draft', species, sighting, pointsEarned, newBadges, newLevel}}
  */
 export async function recordSighting({ photoId, candidate = null, candidates = [], notes = {}, foundAt = Date.now() }) {
-  const activeTrip = (await Trips.where('endedAt', null))[0];
+  const trip = await tripFor(foundAt); // the trip it was found on, by time
 
   return withRewards(() => transaction(async () => {
     const attached = candidate ? await attachToSpecies(candidate, photoId, foundAt) : null;
@@ -163,7 +164,7 @@ export async function recordSighting({ photoId, candidate = null, candidates = [
     const sighting = withMeta({
       speciesId: attached?.species.id ?? null,
       photoId,
-      tripId: activeTrip?.id ?? null,
+      tripId: trip?.id ?? null,
       foundAt,
       status: candidate ? 'confirmed' : 'draft',
       confidence: candidate?.confidence ?? null,
@@ -207,8 +208,10 @@ export async function updateSighting(sightingId, { foundAt, notes }) {
   return transaction(async () => {
     const sighting = await Sightings.get(sightingId);
     if (!sighting) return;
-    await Sightings.update(sightingId, { foundAt, notes, updatedAt: Date.now() });
-    if (sighting.speciesId && foundAt !== sighting.foundAt) {
+    const dateChanged = foundAt !== sighting.foundAt;
+    const tripId = dateChanged ? ((await tripFor(foundAt))?.id ?? null) : sighting.tripId ?? null;
+    await Sightings.update(sightingId, { foundAt, notes, tripId, updatedAt: Date.now() });
+    if (sighting.speciesId && dateChanged) {
       await refreshSpecies(sighting.speciesId);
       await recomputeSpeciesPoints(sighting.speciesId); // the "first find" may have changed
     }
