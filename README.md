@@ -117,6 +117,16 @@ npx wrangler deploy                        # → https://<name>.<your-subdomain>
 
 Point the app at it with `EXPO_PUBLIC_API_URL` (see `.env.example`). Each visitor address may send 10 photos and 60 searches a minute (a small Durable Object counter per address), so nobody can use up the free AI quota for everyone; offline photos waiting in the queue pause for a minute and continue by themselves. A Worker is used rather than Cloudflare Pages because `*.pages.dev` is blocked by several internet providers in Türkiye. iNaturalist rate-limits Cloudflare's shared addresses now and then, so when the server can't reach it, the phone looks the names and photos up itself; species search always goes from the phone to iNaturalist directly.
 
+### Publishing to Expo Go
+
+The app is published with EAS Update, so it opens in Expo Go without the computer (`eas.json`, project `@rumeysabasarann/mushly`):
+
+```bash
+EXPO_PUBLIC_API_URL=https://api.mushly.workers.dev npx eas-cli@latest update --branch preview --environment preview --platform all -m "What changed"
+```
+
+Open the update's page on expo.dev and scan its QR code with the phone. Installable builds (TestFlight, APK) use the profiles in `eas.json`.
+
 ### Measuring recognition quality
 
 The default models were chosen by measurement, not guesswork. `scripts/benchmark/` sends 48 research-grade iNaturalist photos (24 species common in Türkiye and Europe) through the real recognition pipeline and reports how often the right species comes first:

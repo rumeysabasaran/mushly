@@ -43,7 +43,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Mushly reads your photo library so you can add a mushroom photo to your journal.",
-          "cameraPermission": "Mushly uses the camera to photograph mushrooms you find in the forest."
+          "cameraPermission": "Mushly uses the camera to photograph mushrooms you find in the forest.",
+          "microphonePermission": false
         }
       ],
       [
@@ -57,6 +58,18 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8d57d57d-9c7a-4344-8faf-3be9a93b77fa"
+      }
+    },
+    "owner": "rumeysabasarann",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8d57d57d-9c7a-4344-8faf-3be9a93b77fa"
     }
   }
 }
