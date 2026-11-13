@@ -39,6 +39,15 @@
         "set RECOGNIZER_ORDER=none&& set EXPO_PUBLIC_LANGUAGE=tr&& npx expo start --web --port 8083"
       ],
       "port": 8083
+    },
+    {
+      "name": "mushly-web-cloud-tr",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set EXPO_PUBLIC_API_URL=https://api.mushly.workers.dev&& set EXPO_PUBLIC_LANGUAGE=tr&& npx expo start --web --port 8084"
+      ],
+      "port": 8084
     }
   ]
 }

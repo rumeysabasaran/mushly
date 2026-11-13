@@ -24,6 +24,7 @@ import { enrichCandidates, searchSpecies } from './inaturalist.js';
 import { askEvren, DEFAULT_EVREN_MODEL } from './providers/evren.js';
 import { askGemini, DEFAULT_GEMINI_MODEL } from './providers/gemini.js';
 import { askClaude, CLAUDE_MODEL } from './providers/claude.js';
+import { askWorkersAI, DEFAULT_WORKERS_AI_MODEL } from './providers/workersai.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB (the phone already shrinks photos to ~300 KB)
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -47,6 +48,13 @@ const PROVIDERS = {
       name: 'gemini',
       label: `Gemini · ${env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL}`,
       ask: (input) => askGemini({ ...input, apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL }),
+    },
+  // Cloudflare's own GPUs; only inside the Worker, and only when asked for in RECOGNIZER_ORDER
+  workersai: (env) =>
+    env.AI && {
+      name: 'workersai',
+      label: `Workers AI · ${env.WORKERS_AI_MODEL || DEFAULT_WORKERS_AI_MODEL}`,
+      ask: (input) => askWorkersAI({ ...input, ai: env.AI, model: env.WORKERS_AI_MODEL || DEFAULT_WORKERS_AI_MODEL }),
     },
   claude: (env) =>
     env.ANTHROPIC_API_KEY && {
@@ -121,8 +129,9 @@ export async function handleIdentify(body, env) {
  */
 export async function groundResult(raw, language) {
   const clean = sanitizeResult(raw);
-  const candidates = await enrichCandidates(clean.candidates, language);
-  return sanitizeResult({ ...clean, candidates });
+  const { candidates, grounded } = await enrichCandidates(clean.candidates, language);
+  // grounded: false tells the phone to look the names up in iNaturalist itself
+  return { ...sanitizeResult({ ...clean, candidates }), grounded };
 }
 
 /** Same rule as the safety filter's Latin names: letters, spaces, dots and hyphens only */

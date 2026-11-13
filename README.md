@@ -101,8 +101,21 @@ Copy `.env.example` to `.env` and add at least one key. The `.env` file is git-i
 | `EVREN_MODEL` | Optional, defaults to `qwen3-vl-30b` |
 | `ANTHROPIC_API_KEY` | Paid, last-resort fallback (Claude) |
 | `RECOGNIZER_ORDER` | Optional order, e.g. `evren,gemini` |
+| `EXPO_PUBLIC_API_URL` | Optional: send the app's requests to the hosted server instead of the dev server, e.g. `https://api.mushly.workers.dev` |
 
 Services with a key are tried in order; if one fails (quota, credit, timeout…), the next takes over. Restart `npm start` after changing `.env`; the terminal prints the active chain, e.g. `🍄 Species recognition: Gemini · gemini-3.5-flash-lite → fallback: Evren · qwen3-vl-30b`.
+
+### Hosting the recognition server
+
+The installed app talks to a Cloudflare Worker (`worker/index.js`, config in `wrangler.toml`) that runs the same code as the dev server:
+
+```bash
+npx wrangler login
+npx wrangler secret put GEMINI_API_KEY     # and EVREN_API_KEY
+npx wrangler deploy                        # → https://<name>.<your-subdomain>.workers.dev
+```
+
+Point the app at it with `EXPO_PUBLIC_API_URL` (see `.env.example`). Each visitor address may send 10 photos and 60 searches a minute (a small Durable Object counter per address), so nobody can use up the free AI quota for everyone; offline photos waiting in the queue pause for a minute and continue by themselves. A Worker is used rather than Cloudflare Pages because `*.pages.dev` is blocked by several internet providers in Türkiye. iNaturalist rate-limits Cloudflare's shared addresses now and then, so when the server can't reach it, the phone looks the names and photos up itself; species search always goes from the phone to iNaturalist directly.
 
 ### Measuring recognition quality
 
@@ -138,7 +151,7 @@ src/
   i18n/                   en.js, tr.js and the t() helper
   theme.js                Colors, fonts, sizes and shadows
 server/                   Prompt, fallback chain and service providers
-functions/                Production endpoint (Cloudflare Pages Functions)
+worker/                   Production server (Cloudflare Worker, https://api.mushly.workers.dev)
 locales/                  Localized app name and permission texts
 docs/                     Roadmap and screenshots
 ```

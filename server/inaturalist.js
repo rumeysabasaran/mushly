@@ -28,10 +28,41 @@ const SPECIES_RANKS = new Set(['species', 'subspecies', 'variety', 'form']);
 // In-memory cache for the lifetime of the server process: Latin name → lookup result
 const cache = new Map();
 
-async function getJson(path) {
-  const response = await fetch(`${API}${path}`, { headers: HEADERS, signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!response.ok) throw new Error(`iNaturalist ${response.status}`);
+// On Cloudflare, `cf` keeps iNaturalist's answers in Cloudflare's cache for a day, so repeated
+// lookups (common species, popular searches) never reach iNaturalist. Elsewhere it's ignored.
+const EDGE_CACHE = { cacheEverything: true, cacheTtlByStatus: { '200-299': 86_400, '400-599': 0 } }; // errors are never cached
+
+/** An abort signal that fires after `ms` (AbortSignal.timeout isn't available on every phone). */
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+async function getJsonOnce(path) {
+  const response = await fetch(`${API}${path}`, { headers: HEADERS, signal: timeoutSignal(TIMEOUT_MS), cf: EDGE_CACHE });
+  if (!response.ok) throw Object.assign(new Error(`iNaturalist ${response.status}`), { status: response.status });
   return response.json();
+}
+
+/*
+  Retries when iNaturalist is briefly unavailable or says "too many requests" (429).
+  Cloudflare's servers share their outgoing addresses with many other sites, so a 429 can
+  happen even when we send few requests; waiting a moment usually clears it.
+*/
+const RETRY_DELAYS_MS = [800, 2_000];
+
+async function getJson(path) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await getJsonOnce(path);
+    } catch (err) {
+      const hiccup = !err.status || err.status >= 500 || err.status === 429;
+      if (!hiccup || attempt >= RETRY_DELAYS_MS.length) throw err;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
 }
 
 const normalize = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -92,18 +123,20 @@ function commonNameFor(taxon, language) {
 
 /**
  * Enriches sanitized candidates with iNaturalist names and photos.
+ * Returns { candidates, grounded }: grounded is false when iNaturalist couldn't be reached,
+ * in which case the AI's candidates come back unchanged (the phone then tries itself).
  * @param {object[]} candidates  output of sanitizeResult().candidates
  * @param {'en'|'tr'} language
  */
 export async function enrichCandidates(candidates, language) {
-  if (!candidates.length) return candidates;
+  if (!candidates.length) return { candidates, grounded: true };
 
   let taxa;
   try {
     taxa = await Promise.all(candidates.map((c) => findTaxon(c.latinName, language)));
   } catch (err) {
     console.warn('[inaturalist] lookup failed, keeping AI names:', err.message);
-    return candidates;
+    return { candidates, grounded: false };
   }
 
   // Details (with the photo list) for every found taxon, in a single request
@@ -139,7 +172,7 @@ export async function enrichCandidates(candidates, language) {
     if (!existing || existing.confidence < enriched.confidence) byTaxon.set(taxon.id, enriched);
   });
 
-  return [...byTaxon.values()].sort((a, b) => b.confidence - a.confidence);
+  return { candidates: [...byTaxon.values()].sort((a, b) => b.confidence - a.confidence), grounded: true };
 }
 
 // ---------------------------------------------------------------- search

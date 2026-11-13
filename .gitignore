@@ -28,3 +28,4 @@ expo-env.d.ts
 
 # Recognition benchmark output
 scripts/benchmark/results/
+.wrangler/

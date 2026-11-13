@@ -14,6 +14,8 @@ import { deletePhoto } from './collection.js';
 
 const { pending: Pending, photos: Photos } = tables;
 let running = false;
+// After "too many requests" or "busy", the queue pauses this long, then continues by itself
+const PAUSE_WHEN_BUSY_MS = 65_000;
 
 export async function addPending(photoId, reason = 'offline') {
   const item = withMeta({ photoId, status: 'waiting', reason, result: null, errorCode: '' });
@@ -46,6 +48,12 @@ export async function processPending() {
         if (err instanceof OfflineError) {
           await Pending.update(item.id, { status: 'waiting', updatedAt: Date.now() });
           break; // the connection dropped again; try the rest later
+        }
+        if (err.code === 'rate-limit' || err.code === 'busy') {
+          // The server allows a few photos a minute; wait a minute and carry on by itself
+          await Pending.update(item.id, { status: 'waiting', updatedAt: Date.now() });
+          setTimeout(() => processPending(), PAUSE_WHEN_BUSY_MS);
+          break;
         }
         await Pending.update(item.id, { status: 'error', errorCode: err.code || 'generic', updatedAt: Date.now() });
       }

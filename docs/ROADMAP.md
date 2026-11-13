@@ -71,7 +71,7 @@ server/
   identify.js, providers/ → Gemini → Evren → Claude fallback chain
   inaturalist.js        → Grounds names and reference photos in iNaturalist
 scripts/benchmark/      → Recognition accuracy and speed measurement
-functions/api/identify.js → Production endpoint (Cloudflare, stage 6)
+worker/index.js         → Production server (Cloudflare Worker, api.mushly.workers.dev)
 ```
 
 ## 4. Data model (on the device, SQLite)
@@ -114,6 +114,26 @@ showed it was both slow and inaccurate:
 (Some Evren failures came from running four Evren models at once and hitting the account's
 concurrency limit; without them gemma reaches ~60%, which doesn't change the ranking.)
 
+**Cloudflare Workers AI, measured 13 November 2026** (`server/providers/workersai.js`): models that
+run on Cloudflare's own GPUs, so no third-party AI service would be needed. Screened on 8 photos
+(one per species, every 6th), then the best one on 24 (one per species), Turkish prompts, thinking off:
+
+| Model | Right species first | In top 3 | Median time | Notes |
+|---|---|---|---|---|
+| Gemini 3.5 Flash-Lite (same 24 photos) | 79% | 92% | 5 s | current default, for comparison |
+| Workers AI Gemma 4 26B (24 photos) | 54% | 71% | 14 s | best Workers AI model |
+| Workers AI Mistral Small 3.1 24B (8) | 38% | 38% | 14 s | |
+| Workers AI Qwen 3.8 27B (8) | 38% | 63% | 20 s | p90 73 s |
+| Workers AI Llama 4 Scout (8) | 38% | 50% | 31 s | 2 of 8 failed |
+| Workers AI Inkling 2 Small | — | — | — | not available on the free plan |
+| Workers AI Llama 3.2 Vision | — | — | — | needs Meta's license accepted; not tested |
+
+Result: none comes close to Gemini; Gemma 4 is roughly at the level of the Evren fallback. Workers AI
+stays available as an option (`RECOGNIZER_ORDER=workersai`) but is not in the default chain. Its free
+allowance (10,000 "neurons" a day) would also only cover a few hundred photos a day. Real
+independence from outside AI services would more likely come from a small model of our own
+(trained on openly licensed iNaturalist photos, possibly running on the phone).
+
 **Automatic fallback chain** (`server/identify.js`): Gemini → Evren (`qwen3-vl-30b`) → Claude.
 If a service fails, the next one is tried. Claude Opus 5.5 is the paid last resort
 (`server/providers/claude.js`). Privacy trade-off: on Google's free tier submitted photos may
@@ -127,8 +147,23 @@ Whichever service is used, the reply is requested in the same JSON schema
 descriptions come back in Turkish or English. Replies are filtered twice: on the server
 and on the phone.
 
-Cloudflare Pages was chosen as the production host: it's free and doesn't cut requests
-that take longer than 10 seconds (Netlify/Vercel free plans do).
+**Hosting (13 November 2026): a Cloudflare Worker at `https://api.mushly.workers.dev`**
+(`worker/index.js`). Cloudflare was chosen because it's free and doesn't cut requests that take
+longer than 10 seconds (Netlify/Vercel free plans do). The first plan, Cloudflare Pages, turned
+out to be unreachable from Türkiye: several internet providers block every `*.pages.dev` address
+(wrong DNS answer, and the secure connection is reset). `*.workers.dev` is reachable, and a Worker
+runs the same code. A custom domain stays an option if `workers.dev` is ever blocked too.
+
+iNaturalist answers "too many requests" to Cloudflare's shared outgoing addresses now and then.
+Its answers are cached at Cloudflare for a day, busy answers are retried, and when the server
+still can't reach it the reply says `grounded: false` and the phone looks the names and photos up
+itself (each phone has its own address). Species search goes from the phone to iNaturalist directly.
+
+The server's address is public (open source), so each visitor address may send 10 photos and 60
+searches a minute; beyond that the app says "too many requests, try again shortly". Cloudflare's
+built-in rate limiter didn't block anything at this scale, so a tiny counter per address
+(Durable Object, free) does it. Mobile carriers can share one address between many people;
+raise the limits if that ever bites.
 
 Original comparison:
 
@@ -179,5 +214,7 @@ means changing a single file on the server.
    found, and a trip memory page when it ends (duration, finds, first-time species, points,
    weather, polaroids; rename or delete — deleting keeps the finds). The profile adds "exploring
    since", total finds, highlights (rarest, most seen, longest trip) and recent points
-6. ⬜ Final polish: app icon and splash screen, hosting the recognition server,
-   installable builds (Android/iOS)
+6. ⬜ Final polish
+   - ✅ Recognition server hosted on a Cloudflare Worker (api.mushly.workers.dev)
+   - ⬜ App icon and splash screen (logo still being decided)
+   - ⬜ Installable builds (Android APK; iPhone via Expo Go/EAS Update or TestFlight)

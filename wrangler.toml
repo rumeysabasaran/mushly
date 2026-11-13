@@ -1,0 +1,23 @@
+# Cloudflare Worker: the recognition server for the phone app (worker/index.js).
+# Deploy: npx wrangler deploy        → https://api.mushly.workers.dev
+# API keys are secrets (npx wrangler secret put GEMINI_API_KEY), never in this file.
+name = "api"
+main = "worker/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Cloudflare's own AI models (Workers AI). Not used by default; see server/providers/workersai.js
+[ai]
+binding = "AI"
+
+# Rate limits per visitor address: a small counter (Durable Object, free) per address.
+# Keeps someone who finds the open-source server address from using up the free AI quota.
+# Limits live in worker/index.js (10 photos and 60 searches a minute).
+[[durable_objects.bindings]]
+name = "LIMITER"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RateLimiter"]

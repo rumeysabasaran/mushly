@@ -7,7 +7,12 @@
 
   Usage:
     node --env-file=.env scripts/benchmark/run.mjs [--models=default,evren:qwen3-vl-30b,gemini:gemini-3.5-flash-lite]
-                                                   [--language=tr] [--limit=10] [--concurrency=2]
+                                                   [--language=tr] [--limit=10] [--every=2] [--concurrency=2]
+
+  --every=2  takes every 2nd photo (the test set has 2 photos per species, so: 1 per species)
+  --url=http://localhost:8787  sends the photos to a running server instead of calling the
+             code directly, e.g. the Worker started with `npx wrangler dev` to measure
+             Workers AI (which only exists inside a Worker). --models then only names the run.
 
   Results are written to scripts/benchmark/results/ (git-ignored).
 */
@@ -27,7 +32,22 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/
 const models = (args.models ?? DEFAULT_MODELS.join(',')).split(',');
 const language = args.language ?? 'tr';
 const concurrency = Number(args.concurrency ?? 2);
-const testset = JSON.parse(fs.readFileSync(path.join(DIR, 'testset.json'), 'utf8')).slice(0, Number(args.limit ?? Infinity));
+const every = Number(args.every ?? 1);
+const testset = JSON.parse(fs.readFileSync(path.join(DIR, 'testset.json'), 'utf8'))
+  .filter((_, i) => i % every === 0)
+  .slice(0, Number(args.limit ?? Infinity));
+const serverUrl = args.url ? args.url.replace(/\/+$/, '') : null;
+
+/** Sends one photo to a running server (--url) and returns { status, body } like handleIdentify */
+async function identifyRemote(body) {
+  const response = await fetch(`${serverUrl}/api/identify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(150_000),
+  }).catch((err) => ({ ok: false, status: 0, json: async () => ({ code: 'unreachable', error: err.message }) }));
+  return { status: response.status, body: await response.json().catch(() => ({})) };
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const genusOf = (name) => String(name).split(' ')[0].toLowerCase();
@@ -53,7 +73,8 @@ function envFor(model) {
 async function identifyOnce(item, env) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const started = Date.now();
-    const { status, body } = await handleIdentify({ image: images.get(item.url), mediaType: 'image/jpeg', language }, env);
+    const request = { image: images.get(item.url), mediaType: 'image/jpeg', language };
+    const { status, body } = serverUrl ? await identifyRemote(request) : await handleIdentify(request, env);
     const seconds = (Date.now() - started) / 1000;
     if (status !== 200 && RETRY_CODES.has(body.code) && attempt < 2) {
       await sleep(20_000);

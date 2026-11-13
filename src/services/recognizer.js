@@ -24,6 +24,7 @@
 */
 import NetInfo from '@react-native-community/netinfo';
 import { sanitizeCandidate, sanitizeResult } from './safety.js';
+import { enrichCandidates, searchSpecies as searchINaturalist } from '../../server/inaturalist.js';
 import { photoBase64 } from './photos';
 import { language } from '../i18n';
 
@@ -45,7 +46,16 @@ export class RecognitionError extends Error {
   }
 }
 
-const ENDPOINT = '/api/identify';
+/*
+  Where the recognition server lives.
+  - Development (npm start): empty, so requests go to the dev server on the computer.
+  - Installed app: EXPO_PUBLIC_API_URL, e.g. https://mushly.pages.dev (set in eas.json),
+    since an installed app has no dev server to talk to.
+*/
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/+$/, '');
+const api = (path) => `${API_BASE}${path}`;
+
+const ENDPOINT = api('/api/identify');
 // Long enough for the whole server chain: Evren (80 s) + Gemini fallback (60 s)
 const TIMEOUT_MS = 150_000;
 
@@ -90,23 +100,42 @@ export async function identify(photo) {
   }
 
   // The server already filtered the result; filter once more on the phone (two layers).
-  return { ...sanitizeResult(data), mock: data.mock === true };
+  let result = sanitizeResult(data);
+
+  // The server couldn't reach iNaturalist (it rate-limits Cloudflare's shared addresses now and
+  // then); the phone has its own address, so it looks the names and photos up itself.
+  if (data.grounded === false && result.candidates.length) {
+    const { candidates } = await enrichCandidates(result.candidates, language);
+    result = sanitizeResult({ ...result, candidates });
+  }
+  return { ...result, mock: data.mock === true };
 }
 
 // ---------------------------------------------------------------- "none of these" search
 
-/** Searches mushroom species by name (Turkish, English or Latin) on iNaturalist, via the server. */
+/**
+ * Searches mushroom species by name (Turkish, English or Latin) on iNaturalist.
+ * The phone asks iNaturalist directly (its own address isn't rate-limited like the server's);
+ * if that fails, it asks through the server.
+ */
 export async function searchSpecies(query) {
+  const asCandidates = (list) => list.map((r) => ({ ...sanitizeCandidate(r), source: 'user' })).filter((r) => r.latinName);
+  try {
+    return asCandidates(await searchINaturalist(query, language));
+  } catch (err) {
+    console.warn('[search] iNaturalist directly failed, trying the server:', err.message);
+  }
+
   const params = new URLSearchParams({ q: query, language });
   let response;
   try {
-    response = await fetch(`/api/species?${params}`);
+    response = await fetch(api(`/api/species?${params}`));
   } catch {
     throw new OfflineError();
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new RecognitionError(data.error || 'Search failed.', data.code);
-  return (data.results ?? []).map((r) => ({ ...sanitizeCandidate(r), source: 'user' })).filter((r) => r.latinName);
+  return asCandidates(data.results ?? []);
 }
 
 /**
@@ -119,7 +148,7 @@ export async function describeSpecies(photo, candidate) {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let response;
   try {
-    response = await fetch('/api/describe', {
+    response = await fetch(api('/api/describe'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image, mediaType: 'image/jpeg', language, latinName: candidate.latinName }),
